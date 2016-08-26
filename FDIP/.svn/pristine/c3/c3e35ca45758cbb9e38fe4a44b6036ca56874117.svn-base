@@ -1,0 +1,45 @@
+package com.trusdom.demo;
+
+import java.net.MalformedURLException;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.caucho.hessian.client.HessianProxyFactory;
+import com.trusdom.fdip.form.DemoPersonForm;
+import com.trusdom.fdip.model.DemoPerson;
+import com.trusdom.fdip.services.hessian.demo.DemoService;
+
+public class DemoClient {
+	private static final Logger LOGGER = LoggerFactory.getLogger(DemoClient.class);
+	private static String url = "http://localhost:8080/fdip-service/demoService";
+	private static HessianProxyFactory factory = new HessianProxyFactory();
+	private static DemoService service;
+	static{
+		try {
+			service = (DemoService) factory.create(DemoService.class, url);
+		} catch (MalformedURLException e) {
+			e.printStackTrace();
+			LOGGER.error("load FDIP service failed!!");
+		}
+	}
+	
+	public static List<DemoPerson> query(){
+		List<DemoPerson> result = service.query();
+		System.err.println(result);
+		return result;
+	}
+	
+	public static void insert(DemoPersonForm form){
+		service.insert(form);
+	}
+	
+	public static void main(String[] args) {
+		DemoPersonForm form = new DemoPersonForm();
+		form.setName("test");
+		form.setAge(101);
+		insert(form);
+		query();
+	}
+}

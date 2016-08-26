@@ -1,0 +1,194 @@
+
+package com.trusdom.fdip.model;
+
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.util.Date;
+
+import com.trusdom.fdip.common.Json;
+
+/**
+ * @author zhihuayang E-mail:425273175@qq.com
+ * @date 创建时间：2016年5月17日 下午4:55:48
+ * @version 1.0
+ * @parameter
+ * @return
+ */
+
+public class Trade extends BaseCase implements Serializable {
+
+	private static final long serialVersionUID = 8655000504962302999L;
+
+	public enum Status{
+		SUCCESS,FAIL,DOING
+	}
+	public enum TradeType{
+		BUY,REDE
+	}
+	private Long id;
+
+	private Long account;
+	
+	private Long thrdAccount;
+
+	private String tradeNo;
+
+	private String extTradeNo;
+	
+	private BigDecimal amount;
+
+	private BigDecimal sgAmount;
+
+	private Status status;
+
+	private Date createTime;
+
+	private Date updateTime;
+
+	private String payDay;
+	
+	private TradeType tradeType;
+	
+	private Date editableDeadline;
+	
+	private Date interestTime;
+	
+	private Date redeemableTime;
+
+	private Long Fund;
+
+	public Long getId() {
+		return id;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
+	}
+
+	public Long getAccount() {
+		return account;
+	}
+
+	public void setAccount(Long account) {
+		this.account = account;
+	}
+
+	public Long getThrdAccount() {
+		return thrdAccount;
+	}
+
+	public void setThrdAccount(Long thrdAccount) {
+		this.thrdAccount = thrdAccount;
+	}
+
+	public String getTradeNo() {
+		return tradeNo;
+	}
+
+	public void setTradeNo(String tradeNo) {
+		this.tradeNo = tradeNo;
+	}
+
+	public String getExtTradeNo() {
+		return extTradeNo;
+	}
+
+	public void setExtTradeNo(String extTradeNo) {
+		this.extTradeNo = extTradeNo;
+	}
+
+	public BigDecimal getAmount() {
+		return amount;
+	}
+
+	public void setAmount(BigDecimal amount) {
+		this.amount = amount;
+	}
+
+	public BigDecimal getSgAmount() {
+		return sgAmount;
+	}
+
+	public void setSgAmount(BigDecimal sgAmount) {
+		this.sgAmount = sgAmount;
+	}
+
+	public Status getStatus() {
+		return status;
+	}
+
+	public void setStatus(Status status) {
+		this.status = status;
+	}
+
+	public Date getCreateTime() {
+		return createTime;
+	}
+
+	public void setCreateTime(Date createTime) {
+		this.createTime = createTime;
+	}
+
+	public Date getUpdateTime() {
+		return updateTime;
+	}
+
+	public void setUpdateTime(Date updateTime) {
+		this.updateTime = updateTime;
+	}
+
+	public String getPayDay() {
+		return payDay;
+	}
+
+	public void setPayDay(String payDay) {
+		this.payDay = payDay;
+	}
+
+	public Date getEditableDeadline() {
+		return editableDeadline;
+	}
+
+	public void setEditableDeadline(Date editableDeadline) {
+		this.editableDeadline = editableDeadline;
+	}
+
+	public Date getInterestTime() {
+		return interestTime;
+	}
+
+	public void setInterestTime(Date interestTime) {
+		this.interestTime = interestTime;
+	}
+
+	public Long getFund() {
+		return Fund;
+	}
+
+	public void setFund(Long fund) {
+		Fund = fund;
+	}
+
+	public TradeType getTradeType() {
+		return tradeType;
+	}
+
+	public void setTradeType(TradeType tradeType) {
+		this.tradeType = tradeType;
+	}
+
+	@Override
+	public String toString() {
+		return Json.toJson(this).toString();
+	}
+
+	public Date getRedeemableTime() {
+		return redeemableTime;
+	}
+
+	public void setRedeemableTime(Date redeemableTime) {
+		this.redeemableTime = redeemableTime;
+	}
+
+	
+}

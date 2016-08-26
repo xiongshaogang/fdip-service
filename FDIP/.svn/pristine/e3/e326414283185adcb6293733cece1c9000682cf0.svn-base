@@ -1,0 +1,87 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.vo;
+
+import java.math.BigDecimal;
+
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年7月4日 下午2:04:31
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+/**
+ * @author lenovo
+ *
+ */
+public class FundStatus extends BaseVo {
+	
+	// 个人首次申购最小份额
+	private BigDecimal fstMinPurchaseAmount;
+
+	// 最大申购份额
+	private BigDecimal maxPurchaseAmount;
+
+	// 最小赎回份额
+	private BigDecimal minRedemption;
+
+	// 最大赎回份额
+	private BigDecimal maxRedemption;
+
+	// 最小持有份额
+	private BigDecimal minAccountBalance;
+	
+	// 基金名称
+	private String name;
+
+	public BigDecimal getFstMinPurchaseAmount() {
+		return fstMinPurchaseAmount;
+	}
+
+	public void setFstMinPurchaseAmount(BigDecimal fstMinPurchaseAmount) {
+		this.fstMinPurchaseAmount = fstMinPurchaseAmount;
+	}
+
+	public BigDecimal getMaxPurchaseAmount() {
+		return maxPurchaseAmount;
+	}
+
+	public void setMaxPurchaseAmount(BigDecimal maxPurchaseAmount) {
+		this.maxPurchaseAmount = maxPurchaseAmount;
+	}
+
+	public BigDecimal getMinRedemption() {
+		return minRedemption;
+	}
+
+	public void setMinRedemption(BigDecimal minRedemption) {
+		this.minRedemption = minRedemption;
+	}
+
+	public BigDecimal getMaxRedemption() {
+		return maxRedemption;
+	}
+
+	public void setMaxRedemption(BigDecimal maxRedemption) {
+		this.maxRedemption = maxRedemption;
+	}
+
+	public BigDecimal getMinAccountBalance() {
+		return minAccountBalance;
+	}
+
+	public void setMinAccountBalance(BigDecimal minAccountBalance) {
+		this.minAccountBalance = minAccountBalance;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+}

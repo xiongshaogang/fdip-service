@@ -1,0 +1,103 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.model;
+
+import java.io.Serializable;
+
+import org.noggit.JSONUtil;
+
+import com.trusdom.fdip.common.Json;
+
+/**
+ * @author zhihuayang E-mail:425273175@qq.com
+ * @date 创建时间：2016年5月6日 下午5:03:58
+ * @version 1.0
+ * @parameter
+ * @return
+ */
+
+public class Account implements Serializable {
+
+	private Integer id;
+
+	private Integer userid;// 基金账户id，用来交易的唯一标识
+
+	private String card_no;// cdip用户唯一标识
+  
+	private String fund_id; // 基金id
+
+	private double fastredemount;// 基金账户可用余额,为可快速提现金额
+
+	private double origintredemount;// 普通T日可赎回金额
+
+	private double frozenmount;// T日申购,T+2快速赎回
+	
+	public Integer getId() {
+		return id;
+	}
+
+	public void setId(Integer id) {
+		this.id = id;
+	}
+
+	public Integer getUserid() {
+		return userid;
+	}
+
+	public void setUserid(Integer userid) {
+		this.userid = userid;
+	}
+
+	public String getCard_no() {
+		return card_no;
+	}
+
+	public void setCard_no(String card_no) {
+		this.card_no = card_no;
+	}
+
+	public String getFund_id() {
+		return fund_id;
+	}
+
+	public void setFund_id(String fund_id) {
+		this.fund_id = fund_id;
+	}
+
+	public double getFastredemount() {
+		return fastredemount;
+	}
+
+	public void setFastredemount(double fastredemount) {
+		this.fastredemount = fastredemount;
+	}
+
+	public double getOrigintredemount() {
+		return origintredemount;
+	}
+
+	public void setOrigintredemount(double origintredemount) {
+		this.origintredemount = origintredemount;
+	}
+
+	public double getFrozenmount() {
+		return frozenmount;
+	}
+
+	public void setFrozenmount(double frozenmount) {
+		this.frozenmount = frozenmount;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		// TODO Auto-generated method stub
+		return Json.toJson(this).toString();
+	}
+
+}

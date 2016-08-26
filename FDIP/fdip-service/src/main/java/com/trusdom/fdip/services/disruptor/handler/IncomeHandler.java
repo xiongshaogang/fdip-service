@@ -1,0 +1,63 @@
+package com.trusdom.fdip.services.disruptor.handler;
+
+import java.math.BigDecimal;
+import java.util.Date;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.lmax.disruptor.EventHandler;
+import com.trusdom.fdip.common.BeanUtils;
+import com.trusdom.fdip.common.Constants;
+import com.trusdom.fdip.common.DateUtil;
+import com.trusdom.fdip.model.AccountFundAmount;
+import com.trusdom.fdip.model.Income;
+import com.trusdom.fdip.services.IncomeService;
+import com.trusdom.fdip.services.disruptor.event.IncomeSyncEvent;
+import com.trusdom.fdip.services.mcip.McipThsFundService;
+
+public class IncomeHandler implements EventHandler<IncomeSyncEvent>{
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(IncomeHandler.class);
+	
+	private static final int INDEX0 = 0;
+	
+	@Override
+	public void onEvent(IncomeSyncEvent event, long sequence, boolean endOfBatch)
+			throws Exception {
+		LOGGER.debug("开始同步用户{}|{}的收益数据", event.getAccount(), event.getAccount3rd()); 
+		
+		//正常情况下:T日申购, T+1日开始计息, T+2展示(同步)收益; 所以一般情况下会通过定时任务去同步上一自然日的收益数据;
+		//但是当前同花顺无法在节假日实时同步(返回)上一日收益, 只能在节假日后的第二个工作日返回收益数据, 并且会把节假日所有收益都合并到节假日最后一天做为最后一天的收益;
+		//所以当前定时任务需要同步当前时间的上一个(昨天)和上上个(前天)日期的收益 ,保证当前日既能同步到昨日收益, 又能同步到上一个节假日最后一天的收益(合并所有节假日每天收益)
+		//需要判断上上个日期(前天)是否已经同步过收益; 如本地已经同步过,则无需再同步;
+		String prevDay = DateUtil.prevDay(event.getDay(), Constants._SDF_DATE);
+		McipThsFundService service = event.getMcipThsFundService();
+		IncomeService incomeService = event.getIncomeService();
+		String[] days = {prevDay, event.getDay()};
+		for (String day : days) {
+			Income localIncome = incomeService.findIncomeByDay(event.getAccount(), event.getChannel(), event.getFund(), day);
+			if (null != localIncome){
+				LOGGER.info("{}用户收益已同步!!", prevDay);
+				continue;
+			}
+			LOGGER.info("正在同步{}的收益", day);
+			Income income = service.income(event.getFundCode(), event.getAccount3rd(), event.getTransferAccount3rd(), day);
+			if (null != income){
+				BeanUtils.copyProperties(event, income, new String[]{"income", "interestAmount"});
+				income.setDay(day);
+				income.setCreateTime(new Date());
+				event.getIncomeMapper().save(income);
+				/*AccountFundAmount afa = event.getAccountFundAmountMapper().findByAccountAndChannelAndFund(event.getAccount(), event.getChannel(), event.getFund());
+				BigDecimal totalIncome = new BigDecimal(afa.getIncome().doubleValue()).add(income.getIncome());
+				afa.setInterestAmount(afa.getInterestAmount().add(income.getIncome()));
+				afa.setIncome(totalIncome);
+				event.getAccountFundAmountMapper().update(afa);*/
+			}else{
+				LOGGER.error("{}用户收益同步异常; 或用户无收益", day);
+			}
+		}
+		LOGGER.debug("同步完成");
+	}
+	
+}

@@ -1,0 +1,84 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.controller;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.trusdom.fdip.form.BuyOrRedeForm;
+import com.trusdom.fdip.form.IncomeRateForm;
+import com.trusdom.fdip.services.BuyFundService;
+import com.trusdom.fdip.services.IncomeRateService;
+import com.trusdom.fdip.services.RedeFundService;
+import com.trusdom.fdip.vo.AbstractVo;
+import com.trusdom.fdip.vo.BaseVo;
+import com.trusdom.fdip.vo.BuyResultVo;
+import com.trusdom.fdip.vo.RedeResultVo;
+
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年5月18日 上午11:47:44
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+
+@Controller
+@RequestMapping("/fund")
+public  class FundController {
+	
+	@Autowired
+	BuyFundService buyFundService;
+	
+	@Autowired
+	RedeFundService redeFundService;
+	
+	@Autowired
+	IncomeRateService incomeRateService;
+	
+	@RequestMapping(method=RequestMethod.POST,value="/purchase")
+	@ResponseBody
+	public AbstractVo buy(@RequestBody  @Validated BuyOrRedeForm buyOrRedeForm,BindingResult bindingResult) {
+		if(bindingResult.hasErrors()){
+			return BaseVo.error(bindingResult.getFieldError().getDefaultMessage());
+		}
+		try {
+			return buyFundService.buyThs(buyOrRedeForm);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			return BaseVo.error("global.systemError");
+		}
+	}
+	
+	@RequestMapping(method=RequestMethod.POST,value="/redemption")
+	@ResponseBody
+	public AbstractVo rede(@RequestBody  @Validated BuyOrRedeForm buyOrRedeForm,BindingResult bindingResult) {
+		if(bindingResult.hasErrors()){
+			return BaseVo.error(bindingResult.getFieldError().getDefaultMessage());
+		}
+		try {
+			return redeFundService.RedeThs(buyOrRedeForm);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			return BaseVo.error("global.systemError");
+		}
+	}
+	
+//	@RequestMapping(method=RequestMethod.POST,value="/incomeRate")
+//	@ResponseBody
+//	public AbstractVo getIncomeRates(@RequestBody  @Validated IncomeRateForm incomeRateForm,BindingResult bindingResult){
+//		if(bindingResult.hasErrors()){
+//			return BaseVo.error(bindingResult.getFieldError().getDefaultMessage());
+//		}
+//		return incomeRateService.find(incomeRateForm);
+//	}
+}

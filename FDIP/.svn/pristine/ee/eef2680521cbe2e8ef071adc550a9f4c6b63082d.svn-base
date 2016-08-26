@@ -1,0 +1,55 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.form;
+
+import javax.validation.constraints.Digits;
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
+
+import org.hibernate.validator.constraints.NotBlank;
+
+/**
+ * @author zhihuayang E-mail:425273175@qq.com
+ * @date 创建时间：2016年5月17日 下午1:43:05
+ * @version 1.0
+ * @parameter
+ * @return
+ */
+
+public class BuyForm {
+
+	@NotBlank(message = "基金代码不能为空")
+	private String fundCode;
+	
+	@Digits(integer=0,fraction=01)
+	private double amount;
+
+	@NotBlank(message = "交易卡号不能为空")
+	private String accountNo;
+
+	public String getFundCode() {
+		return fundCode;
+	}
+
+	public void setFundCode(String fundCode) {
+		this.fundCode = fundCode;
+	}
+
+	public double getAmount() {
+		return amount;
+	}
+
+	public void setMount(double amount) {
+		this.amount = amount;
+	}
+
+	public String getAccountNo() {
+		return accountNo;
+	}
+
+	public void setAccountNo(String accountNo) {
+		this.accountNo = accountNo;
+	}
+
+}

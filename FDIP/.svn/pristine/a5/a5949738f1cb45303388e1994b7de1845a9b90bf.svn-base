@@ -1,0 +1,322 @@
+package com.trusdom.fdip.services.ths;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.trusdom.fdip.common.CodeBuilder;
+import com.trusdom.fdip.common.HttpUtil;
+import com.trusdom.fdip.common.Json;
+import com.trusdom.fdip.form.BuyOrRedeForm;
+import com.trusdom.fdip.form.mcip.PurcharseForm;
+import com.trusdom.fdip.model.Account;
+import com.trusdom.fdip.model.Account3RD;
+import com.trusdom.fdip.model.AccountFundAmount;
+import com.trusdom.fdip.model.Channel;
+import com.trusdom.fdip.model.Fund;
+import com.trusdom.fdip.model.Sgedit;
+import com.trusdom.fdip.model.Trade;
+import com.trusdom.fdip.model.Trade.Status;
+import com.trusdom.fdip.model.Trade.TradeType;
+import com.trusdom.fdip.model.account3RD.ThsAccount;
+import com.trusdom.fdip.services.Account3RDService;
+import com.trusdom.fdip.services.AccountFundAmountService;
+import com.trusdom.fdip.services.AccountService;
+import com.trusdom.fdip.services.CapitalAllocationService;
+import com.trusdom.fdip.services.FundTradeService;
+import com.trusdom.fdip.services.HolidayService;
+import com.trusdom.fdip.services.SgeditService;
+import com.trusdom.fdip.services.TradeService;
+import com.trusdom.fdip.services.cbip.AccountTransferService;
+import com.trusdom.fdip.services.mcip.McipThsFundService;
+import com.trusdom.fdip.vo.BaseVo;
+import com.trusdom.fdip.vo.PurcharseResultVo;
+import com.trusdom.fdip.vo.RedemptionResultVo;
+import com.trusdom.fdip.vo.ThsMcipTotalAmountResponseVo;
+import com.trusdom.fdip.vo.TradingVo;
+
+@Service("thsFundTradeService")
+public class ThsFundTradeService extends FundTradeService {
+	private static final Logger LOGGER = LoggerFactory
+			.getLogger(ThsFundTradeService.class);
+
+	@Autowired
+	AccountTransferService accountTransferService;
+
+	@Autowired
+	McipThsFundService mcipThsFundService;
+
+	@Autowired
+	Account3RDService account3RDService;
+
+	@Autowired
+	AccountService accountService;
+
+	@Autowired
+	HolidayService holidayService;
+
+	@Autowired
+	TradeService tradeService;
+
+	@Autowired
+	AccountFundAmountService accountFundAmountService;
+
+	@Autowired
+	CapitalAllocationService capitalAllocationService;
+
+	@Autowired
+	SgeditService sgeditService;
+
+	/**
+	 * 获取同花顺账户信息
+	 * 
+	 * @param accountNo
+	 * @param channel
+	 * @return
+	 */
+	private ThsAccount getThsAccount(String accountNo, String channel) {
+		Account3RD account = account3RDService.queryByChannlAndAccount(
+				getChannel(channel), getAccount(accountNo));
+		ThsAccount thsAccount = Json.fromJson(Json.parse(account.getAccountInfo()), ThsAccount.class);
+		return thsAccount;
+	}
+
+	private void updateAmount(boolean is_bigger, String extTradeNo,	BigDecimal blanceAmount, String channel, ThsAccount thsAccount,	Account account) throws Exception {
+		Trade trade = tradeService.findByApplyNo(extTradeNo);
+		if (is_bigger){
+			trade.setRealAmount(trade.getRealAmount().subtract(blanceAmount)); 
+		}else{
+			trade.setRealAmount(new BigDecimal("0.00"));
+		}
+		String extTradNo = HttpUtil.mcipModifyThs(trade.getExtTradeNo(),
+				blanceAmount.toString(), account.getTradePwd(),
+				thsAccount.getTransActionAccountId(), thsAccount.getCustId(),
+				CodeBuilder.generatorTradeNo(null));
+		@SuppressWarnings("unused")
+		String cbipNo = transfer(channel, account.getAccountNo(), blanceAmount,"REFUND");
+		Sgedit sgedit = new Sgedit();
+		sgedit.setAmount(blanceAmount);
+		sgedit.setCreateTime(new Date());
+		sgedit.setTrade(trade.getId());
+		sgedit.setExtTradNo(extTradNo);
+		sgeditService.save(sgedit);
+		tradeService.updateTradeAmount(trade.getRealAmount(), new Date(),trade.getId());
+	}
+
+	// 调用修改份额接口
+	private void modifyThs(List<TradingVo> list, BigDecimal blanceAmount,Account account, ThsAccount thsAccount, BuyOrRedeForm form)
+			throws Exception {
+		for (TradingVo tradingVo : list) {
+			if (new BigDecimal(tradingVo.getApplicationAmount()).compareTo(blanceAmount) >= 0) {
+				updateAmount(true, tradingVo.getAppSheetSerialNo(),blanceAmount, form.getChannel(), thsAccount, account);
+				break;
+			} else {
+				blanceAmount = blanceAmount.subtract(new BigDecimal(tradingVo.getApplicationAmount()));
+				updateAmount(false, tradingVo.getAppSheetSerialNo(),new BigDecimal(tradingVo.getApplicationAmount()), form.getChannel(), thsAccount, account);
+			}
+		}
+	}
+
+	private void saveRedeTrade(Account account, Fund fund, Channel channel,
+			BigDecimal amount, String tradeNo, String extTradeNo) {
+		Trade trade = new Trade();
+		trade.setAccount(account);
+		trade.setAmount(amount);
+		trade.setChannel(channel);
+		trade.setCreateTime(new Date());
+		trade.setExtTradeNo(extTradeNo);
+		trade.setFund(fund);
+		if (StringUtils.isBlank(extTradeNo)){
+			trade.setRealAmount(new BigDecimal("0.00"));
+		}else{
+			trade.setRealAmount(amount);
+		}
+		trade.setStatus(Status.SUCCESS);
+		trade.setThrdAccount(getAccount3RD(channel.getCode().name(),account.getAccountNo()).getId());
+		trade.setTradeNo(tradeNo);
+		trade.setTradeType(TradeType.REDEMPTION);
+		trade.setUpdateTime(new Date());
+		tradeService.save(trade);
+	}
+
+	/**
+	 * 同花顺基金申购,出现异常未处理情况如下,
+	 */
+	@Override
+	@Transactional
+	public BaseVo purchase(BuyOrRedeForm form) {
+		BaseVo result;
+		if (!(result = validate(form)).isSuccess()) {
+			return result;
+		}
+		Fund fund = getFund(form.getFundCode());
+		fund=mcipThsFundService.fundStatus(fund);
+		if (fund==null||!fund.getThsStatus().getPurchaseAble()) {
+			return result.createError("fund.disabled");
+		}
+		Account account = getAccount(form.getAccountNo());
+		Channel channel = getChannel(form.getChannel());
+		// 首次最小申购额度
+		if (null != (accountFundAmountService.findByAccountAndChannel(
+				account.getId(), channel.getId()))
+				&& (form.getAmount().compareTo(fund.getFstMinPurchaseAmount()) < 0)) {
+			return result.createError("fund.minpurchase");
+		}
+		// 最大申购额度
+		if (form.getAmount().compareTo(fund.getMaxPurchaseAmount()) > 0) {
+			return result.createError("fund.maxpurchase");
+		}
+		ThsAccount thsAccount = getThsAccount(form.getAccountNo(),
+				form.getChannel());
+		try {
+			Boolean frozen = frozen(form.getAccountNo(), form.getAmount());
+			if (!frozen) {
+				return result.createError("capital.frozen.failed");
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			LOGGER.error("资金冻结异常, {}", e.getCause());
+			return result.createError("capital.frozen.failed");
+		}
+		String transferNo = transfer(form.getChannel(), form.getAccountNo(),
+				form.getAmount(), "FUNDTRANSFER");
+		if (StringUtils.isBlank(transferNo)) {
+			LOGGER.error("资金划拨失败");
+			return result.createError("capital.transfer.failed");
+		}
+		Trade trade = new Trade();
+		trade.setAccount(account);
+		trade.setThrdAccount(getAccount3RD(form.getChannel(),
+				form.getAccountNo()).getId());
+		trade.setAmount(form.getAmount());
+		trade.setChannel(channel);
+		trade.setFund(fund);
+		trade.setTradeNo(form.getTradeNo());
+		trade.setExtTradeNo("");
+		trade.setRealAmount(form.getAmount());
+		trade.setPayday(holidayService.getPayDay());
+		trade.setEditableDeadline(editableDeadline());
+		trade.setStatus(Status.INPROGRESS);
+		trade.setTradeType(TradeType.PURCHASE);
+		trade.setCreateTime(new Date());
+		trade.setTransferNo(transferNo);
+		trade.setUpdateTime(new Date());
+		tradeService.save(trade);
+		// 同花顺申购
+		Status status = Status.SUCCESS;
+		String extTradeNo = "";
+		try {
+			PurcharseForm purcharseForm = new PurcharseForm();
+			purcharseForm.setFundCode(form.getFundCode());
+			purcharseForm.setTradePassword(account.getTradePwd());
+			purcharseForm.setMoney(form.getAmount().toString());
+			purcharseForm.setTransActionAccountId(thsAccount
+					.getTransActionAccountId());
+			purcharseForm.setUserid(thsAccount.getCustId());
+			purcharseForm.setTxTraceNo(form.getTradeNo());
+			extTradeNo = mcipThsFundService.purcharse(purcharseForm);
+			if (StringUtils.isBlank(extTradeNo)) {
+				status = Status.FAIL;
+				transferNo = transfer(form.getChannel(), form.getAccountNo(),
+						form.getAmount(), "REFUND");
+				return result.createError("fund.purcharse.failed");
+			}
+			AccountFundAmount accountFundAmount = accountFundAmountService
+					.modifyAccountFundAmount(account.getId(), form.getAmount(),
+							channel.getId(), fund.getId(), true);
+			PurcharseResultVo vo = new PurcharseResultVo();
+			vo.setTradeNo(form.getTradeNo());
+			vo.setApplyNo(extTradeNo);
+			vo.setTotalAmount(accountFundAmount.getAmount());
+			return vo;
+		} catch (Exception e) {
+			e.printStackTrace();
+			LOGGER.error("同花顺基金申购异常, {}", e.getCause());
+			status = Status.INPROGRESS;
+			transferNo = transfer(form.getChannel(), form.getAccountNo(),
+					form.getAmount(), "REFUND");
+			return result.createError("fund.purcharse.failed");
+		} finally {
+			tradeService.updateStatus(trade.getId(), extTradeNo, status);
+		}
+	}
+
+	/**
+	 * 同花顺赎回
+	 */
+	@Override
+	public BaseVo redemption(BuyOrRedeForm form) {
+		BaseVo result;
+		boolean success = false;
+		String extTradeNo = "";
+		if (!(result = validate(form)).isSuccess()) {
+			return result;
+		}
+		Account account = getAccount(form.getAccountNo());
+		Channel channel = getChannel(form.getChannel());
+		Fund fund = getFund(form.getFundCode());
+		AccountFundAmount accountFundAmount = accountFundAmountService
+				.findByAccountAndChannel(account.getId(), channel.getId());
+		if (accountFundAmount.getAmount().compareTo(form.getAmount()) >= 0) {
+			// 获取可修改份额
+			ThsAccount thsAccount = getThsAccount(form.getAccountNo(),form.getChannel());
+			try {
+				BigDecimal canModiyAmoutTotal = new BigDecimal("0.00");
+				List<TradingVo> list = HttpUtil.mcipGetTradingVo(thsAccount.getTransActionAccountId(),thsAccount.getCustId()).getData().getTradelist();
+				List<TradingVo> currentList = new ArrayList<TradingVo>();
+				//不排除有其他基金类型, 所以需要过滤当前指定基金
+				for (TradingVo tradingVo : list) {
+					if (form.getFundCode().equalsIgnoreCase(tradingVo.getFundCode())){
+						canModiyAmoutTotal = canModiyAmoutTotal.add(new BigDecimal(tradingVo.getApplicationAmount()));
+						currentList.add(tradingVo);
+					}
+				}
+				// 可修改份额是否大于赎回份额
+				if (canModiyAmoutTotal.subtract(form.getAmount()).doubleValue() >= 0) {
+					LOGGER.info("用户:[{}], 赎回额度为:[{}], 赎回方式:[{}]", new Object[] {form.getAccountNo(), form.getAmount(), "撤单/修改申购" });
+					modifyThs(currentList, form.getAmount(), account, thsAccount, form);
+					success = true;
+				} else {
+					ThsMcipTotalAmountResponseVo ThsMcipTotalAmountResponseVo = HttpUtil.mcipGetTotalAmountThs(thsAccount.getTransActionAccountId(),thsAccount.getCustId(), form.getFundCode());
+					if (new BigDecimal(ThsMcipTotalAmountResponseVo.getData().getConfirmedvol()).compareTo(form.getAmount()) >= 0) {
+						LOGGER.info("用户:[{}], 赎回额度为:[{}], 赎回方式:[{}]",new Object[] { form.getAccountNo(),form.getAmount(), "T+0快速赎回" });
+						// 快速赎回
+						String fastTradeNo = HttpUtil.mcipFastRedeThs(
+								form.getFundCode(), form.getTradeNo(),
+								thsAccount.getTransActionAccountId(),
+								account.getTradePwd(), thsAccount.getCustId(),
+								form.getPhone(), form.getAmount());
+						success = true;
+						extTradeNo = fastTradeNo;
+					} else {
+						return result.createError("fund.amount.than");
+					}
+				}
+				if (success) {
+					saveRedeTrade(account, fund, channel, form.getAmount(),form.getTradeNo(), extTradeNo);
+					accountFundAmountService.modifyAccountFundAmount(account.getId(), form.getAmount(), channel.getId(),fund.getId(), false);
+					RedemptionResultVo redemptionResultVo = new RedemptionResultVo();
+					redemptionResultVo.setApplyNo(extTradeNo);
+					redemptionResultVo.setTradeNo(form.getTradeNo());
+					return redemptionResultVo;
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+				return result.createError("fund.rede.error");
+			}
+		} else {
+			return result.createError("fund.amount.than");
+		}
+
+		return null;
+	}
+
+}

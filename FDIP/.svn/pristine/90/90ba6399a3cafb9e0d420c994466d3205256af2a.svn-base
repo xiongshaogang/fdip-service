@@ -1,0 +1,120 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.services;
+
+import java.math.BigDecimal;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.trusdom.fdip.mappers.TradeMapper;
+import com.trusdom.fdip.model.Trade;
+import com.trusdom.fdip.model.Trade.Status;
+import com.trusdom.fdip.model.Trade.TradeType;
+
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年6月15日 下午4:04:21
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+/**
+ * @author lenovo
+ *
+ */
+@Service
+public class TradeService {
+	
+	@Autowired
+	TradeMapper tradeMapper;
+	
+	@Autowired
+	HolidayService holidayService;
+	
+	/**
+	 * 日期工具
+	 * @param date
+	 * @param HHmmss
+	 * @return
+	 * @throws ParseException
+	 */
+	private Date getDate(Date date, String HHmmss) throws ParseException {
+		return new SimpleDateFormat("yyyyMMddHHmmss")
+				.parse(new SimpleDateFormat("yyyyMMdd").format(date) + HHmmss);
+	}
+	
+	/**
+	 * trade购买记录添加
+	 * @param amount
+	 * @param fund
+	 * @param tradeNo
+	 * @param thrdAccount
+	 * @throws ParseException
+	 */
+	@Transactional
+	public Trade addBuyTrade(BigDecimal amount,Long fund,String tradeNo,Long thrdAccount) throws ParseException{
+	    Trade trade=new Trade();
+		trade.setPayday(holidayService.getPayDay());
+		trade.setAmount(amount);
+		trade.setCreateTime(new Date());
+		if (new Date().getHours() < 15 && holidayService.isWorkday(new Date()))
+			trade.setEditableDeadline(getDate(new Date(), "150000"));
+		else
+			trade.setEditableDeadline(getDate(holidayService.nextWorkDay(Calendar.getInstance()), "150000"));
+		trade.setFund(fund);
+		trade.setInterestTime(getDate(holidayService.nextWorkDay(Calendar.getInstance()), "170000"));
+		trade.setTradeType(TradeType.BUY);
+		trade.setSgAmount(amount);
+		trade.setStatus(Status.DOING);
+		trade.setThrdAccount(thrdAccount);
+		trade.setTradeNo(tradeNo);
+		trade.setUpdateTime(new Date());
+		tradeMapper.add(trade);
+		return trade;
+	}
+	
+	/**
+	 * trade赎回记录添加
+	 * @param amount
+	 * @param tradeNo
+	 * @param fund
+	 * @param thrdAccount
+	 */
+	@Transactional
+	public Trade addRedeTrade(BigDecimal amount,String tradeNo,Long fund,Long thrdAccount){
+		Trade trade = new Trade();
+		trade.setThrdAccount(thrdAccount);
+		trade.setAmount(amount);
+		trade.setCreateTime(new Date());
+		trade.setFund(fund);
+		trade.setTradeNo(tradeNo);
+		trade.setStatus(Status.DOING);
+		trade.setTradeType(TradeType.REDE);
+		trade.setUpdateTime(new Date());
+		tradeMapper.add(trade);
+		return trade;
+	}
+	
+	@Transactional
+	public void updateTradeAmount(BigDecimal sgAmount,Date updateTime,Long id){
+		tradeMapper.updateAmount1(sgAmount, updateTime, id);
+	}
+	
+	@Transactional
+	public void updateTradeStatus(Status status,String extTradeNo,Date updateTime,Long id){
+		tradeMapper.updateStatus1(status, extTradeNo, updateTime, id);
+	}
+	
+	public List<Trade> findTotalmodify(Long thrdAccount,Long fund,Date editableDeadline){
+		return tradeMapper.findTotalmodify(thrdAccount, fund, editableDeadline);
+	}
+
+}

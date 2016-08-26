@@ -1,0 +1,64 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.vo;
+
+import java.math.BigDecimal;
+
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年6月22日 下午4:13:24
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+/**
+ * @author lenovo
+ *
+ */
+public class CbipTransferRequestVo {
+	
+	public enum TradeType{
+		REFUND,TRANSFER
+	}
+	private String accountNoFrom;
+	
+	private String accountNoTo;
+	
+	private BigDecimal amount;
+	
+	private TradeType transferType;
+	
+	public String getAccountNoFrom() {
+		return accountNoFrom;
+	}
+
+	public void setAccountNoFrom(String accountNoFrom) {
+		this.accountNoFrom = accountNoFrom;
+	}
+
+	public String getAccountNoTo() {
+		return accountNoTo;
+	}
+
+	public void setAccountNoTo(String accountNoTo) {
+		this.accountNoTo = accountNoTo;
+	}
+
+	public BigDecimal getAmount() {
+		return amount;
+	}
+
+	public void setAmount(BigDecimal amount) {
+		this.amount = amount;
+	}
+
+	public TradeType getTransferType() {
+		return transferType;
+	}
+
+	public void setTransferType(TradeType transferType) {
+		this.transferType = transferType;
+	}
+
+}

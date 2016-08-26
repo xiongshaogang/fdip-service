@@ -1,0 +1,61 @@
+package com.trusdom.fdip.scheduler;
+
+import java.util.List;
+
+import org.quartz.DisallowConcurrentExecution;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.quartz.QuartzJobBean;
+import org.springframework.stereotype.Service;
+
+import com.trusdom.fdip.model.Account3RD;
+import com.trusdom.fdip.model.Channel;
+import com.trusdom.fdip.model.Channel.Code;
+import com.trusdom.fdip.model.Fund;
+import com.trusdom.fdip.services.Account3RDService;
+import com.trusdom.fdip.services.ChannelService;
+import com.trusdom.fdip.services.FundService;
+import com.trusdom.fdip.services.disruptor.SyncService;
+
+/**
+ * 
+* @ClassName: SyncIncomeJob 
+* @Description: 同步基金收益
+* @author zjb 
+* @date May 4, 2016 6:01:50 PM
+*
+ */
+@Service
+@DisallowConcurrentExecution
+public class SyncIncomeJob extends QuartzJobBean {
+	private static final Logger LOGGER = LoggerFactory.getLogger(SyncIncomeJob.class);
+	private static final Code CHANNEL = Code.THS;
+	@Autowired
+	ChannelService channelService;
+	@Autowired
+	FundService fundService;
+	@Autowired
+	Account3RDService account3rdService;
+	
+	@Autowired
+	SyncService syncService;
+	@Override
+	protected void executeInternal(JobExecutionContext context)
+			throws JobExecutionException {
+		LOGGER.info("定时任务:开始同步昨日收益数据(含总计息份额)...");
+		Channel channel = channelService.QueryByCode(CHANNEL.name());
+		List<Fund> funds = fundService.queryByChannel(channel);
+		List<Account3RD> account3rds = account3rdService.queryByChannel(channel);
+		for (Account3RD account3rd : account3rds) {
+			for (Fund fund : funds) {
+				syncService.sync(account3rd, fund);
+			}
+		}
+		LOGGER.info("定时任务:数据同步结束!");
+		
+	}
+	
+}

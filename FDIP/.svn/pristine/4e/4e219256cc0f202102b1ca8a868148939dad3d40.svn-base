@@ -1,0 +1,36 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.mappers;
+
+import java.util.Date;
+import java.util.List;
+
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Options;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
+
+import com.trusdom.fdip.model.Trade;
+
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年5月17日 下午5:19:25
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+
+public interface TradeMapper {
+	
+	@Insert("insert into trade(thrdAccount,tradeNo,amounts,gAmount,status,tradeType,createTime,updateTime,fund) "
+			+ "values(#{thrdAccount},#{tradeNo},#{amounts},#{gAmount},#{status},#{tradeType},#{createTime},#{updateTime},#{fund})")
+	@Options(keyProperty="id",keyColumn="id",useGeneratedKeys=true)
+	public void add(Trade trade);
+	
+	@Select("select * from trade where thrdAccount=#{thrdAccount} and fund=#{fund} and sgAmount>0 and editableDeadline>=#{editableDeadline}")
+	List<Trade> findTotalmodify(@Param("thrdAccount") Long thrdAccount,@Param("fund")Long fund,@Param("editableDeadline") Date editableDeadline);
+	
+	
+}

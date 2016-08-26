@@ -1,0 +1,80 @@
+package com.trusdom.fdip.services;
+
+import java.util.Date;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
+
+import com.trusdom.fdip.common.Constants;
+import com.trusdom.fdip.form.BuyOrRedeForm;
+import com.trusdom.fdip.mappers.FundMapper;
+import com.trusdom.fdip.model.Channel;
+import com.trusdom.fdip.model.Fund;
+import com.trusdom.fdip.vo.BaseVo;
+
+@Service
+public class FundService {
+	
+	@Autowired
+	FundMapper fundMapper;
+	
+	@Autowired
+	@Qualifier("thsFundTradeService1")
+	FundTradeService thsFundTradeService;
+	
+	/**
+	 * 保存基金
+	 * @param fund
+	 * @return
+	 */
+	public Long save(Fund fund){
+		return fundMapper.insert(fund);
+	}
+	
+	/**
+	 * 根据基金编码查询基金
+	 * @param fundCode
+	 * @return
+	 */
+	public Fund queryByCode(String fundCode){
+		return fundMapper.findByCode(fundCode);
+	}
+	
+	/**
+	 * 根据基金代码查询渠道
+	 * @param fundCode
+	 * @return
+	 */
+	public Channel queryChannelByFundCode(String fundCode){
+		return fundMapper.findChannelByCode(fundCode).getChannel();
+	}
+	
+	public List<Fund> queryByChannel(Channel channel){
+		return fundMapper.findByChannel(channel.getId());
+	}
+	
+	public void update(Fund fund){
+		fund.setUpdateTime(new Date());
+		if (fund.getChannel().getCode().name().equals(Constants.CHANNEL_THS)){
+			fundMapper.updateThsFund(fund);
+		}
+	}
+	
+	public BaseVo purcharse(BuyOrRedeForm form){
+		BaseVo result = null;
+		if (form.getChannel().equals(Constants.CHANNEL_THS)){
+			result =  thsFundTradeService.purcharse(form);
+		}
+		return result;
+	}
+	
+	public BaseVo redemption(BuyOrRedeForm form){
+		BaseVo result = null;
+		if (form.getChannel().equals(Constants.CHANNEL_THS)){
+			result =  thsFundTradeService.redemption(form);
+		}
+		return result;
+	}
+}

@@ -1,0 +1,23 @@
+package com.trusdom.fdip.mappers;
+
+import java.util.List;
+
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Options;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
+
+import com.trusdom.fdip.model.Income;
+
+public interface IncomeMapper {
+
+	@Insert("insert into income(channel, fund, account, day, income, interestAmount, createTime) values(#{channel}, #{fund}, #{account}, #{day}, #{income}, #{interestAmount}, #{createTime})")
+	@Options(keyProperty="id",keyColumn="id",useGeneratedKeys=true)
+	void save(Income income);
+
+	@Select("select * from income where channel=#{channel} and fund=#{fund} and account=#{account} and day=#{day} limit 0,1")
+	Income findMyIncomeByDay(@Param("account") long account, @Param("channel") long channel, @Param("fund") long fund, @Param("day") String day);
+	
+	@Select("select * from income where account=#{account} and channel=#{channel} and fund=#{fund} and day>=#{start} and day<=#{end}") 
+	List<Income> findByDates(@Param("account") long account, @Param("channel") long channel, @Param("fund") long fund, @Param("start") String start, @Param("end") String end);
+}

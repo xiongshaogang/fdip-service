@@ -1,0 +1,42 @@
+package com.trusdom.fdip.services.disruptor.handler;
+
+import java.math.BigDecimal;
+import java.util.Date;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.lmax.disruptor.EventHandler;
+import com.trusdom.fdip.common.BeanUtils;
+import com.trusdom.fdip.model.AccountFundAmount;
+import com.trusdom.fdip.model.Income;
+import com.trusdom.fdip.services.disruptor.event.IncomeSyncEvent;
+import com.trusdom.fdip.services.mcip.McipThsFundService;
+
+public class IncomeHandler implements EventHandler<IncomeSyncEvent>{
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(IncomeHandler.class);
+	
+	private static final int INDEX0 = 0;
+	
+	@Override
+	public void onEvent(IncomeSyncEvent event, long sequence, boolean endOfBatch)
+			throws Exception {
+		LOGGER.debug("开始同步用户{}|{}的收益数据", event.getAccount(), event.getAccount3rd());
+		
+		McipThsFundService service = event.getMcipThsFundService();
+		Income income = service.income(event.getFundCode(), event.getAccount3rd(), event.getTransferAccount3rd(), event.getDay());
+		if (null != income){
+			BeanUtils.copyProperties(event, income, new String[]{"income", "interestAmount"});
+			income.setCreateTime(new Date());
+			event.getIncomeMapper().save(income);
+			AccountFundAmount afa = event.getAccountFundAmountMapper().findByAccountAndChannelAndFund(event.getAccount(), event.getChannel(), event.getFund());
+			BigDecimal totalIncome = new BigDecimal(afa.getIncome().doubleValue()).add(income.getIncome());
+			event.getAccountFundAmountMapper().syncIncome(afa.getId(), totalIncome);
+		}else{
+			LOGGER.error("用户收益同步异常");
+		}
+		LOGGER.debug("同步完成");
+	}
+
+}

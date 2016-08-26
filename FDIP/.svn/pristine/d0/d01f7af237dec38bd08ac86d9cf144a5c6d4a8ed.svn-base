@@ -1,0 +1,94 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.services;
+
+import java.util.Date;
+
+import org.apache.commons.httpclient.HttpsURL;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.trusdom.fdip.common.HttpUtil;
+import com.trusdom.fdip.common.Json;
+import com.trusdom.fdip.form.BuyForm;
+import com.trusdom.fdip.mappers.TradeMappger;
+import com.trusdom.fdip.model.Account;
+import com.trusdom.fdip.model.BuyFound;
+import com.trusdom.fdip.model.Channel;
+import com.trusdom.fdip.model.Trade;
+import com.trusdom.fdip.spring.configs.RedisConfig;
+import com.trusdom.fdip.vo.BuyFundVo;
+import com.trusdom.fdip.vo.UserInfo;
+
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年5月16日 上午11:04:27
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+
+@Service 
+public class BuyFundService {
+	
+	
+	@Autowired
+	TradeMappger tradeMappger;
+	
+	/**
+	 *  存在账户信息则直接在redis中取值
+	 *  不存在则通过基金编码获取渠道id,然后获取第三方账户信息,将第三方信息放在redis当中
+	 * @param accountNo
+	 * @param fundCode
+	 * @return
+	 */
+	private UserInfo findUserInfo(String accountNo,Long channelId){
+		UserInfo userInfo=RedisConfig.getObject(accountNo+channelId);
+		if(userInfo==null){
+			userInfo=new UserInfo();
+			RedisConfig.set(accountNo+channelId, userInfo);
+		}
+		return userInfo;
+	}
+
+	/**
+	 * 购买基金,转入个人基金账户,判断当前日期是否为T日,为T日购买个人基金账户转入同花顺基金账户,不为T日不操作
+	 * @param fundCode
+	 * @param transActionAccountId
+	 * @param mount
+	 * @param txTraceNo
+	 */
+	public void buy(BuyForm buyForm){
+		//获取渠道id
+		Channel channel=null;
+		//发送到cbip申请冻结账户
+		String params="";
+		//解析划拨结果
+		String cbipResult=HttpUtil.sendRequest("", true, "POST", params, true);
+		//当前时间是否在3点之前
+		int hour=new Date().getHours();
+		//判断今日是否为T日
+		boolean isworkday=true;
+		if(hour<15&&isworkday){
+			UserInfo userInfo=findUserInfo(buyForm.getFundCode(), channel.getId());
+			BuyFundVo buyFundVo=new BuyFundVo(buyForm.getFundCode(),userInfo.getTradePassword(),
+					userInfo.getTransActionAccountId(),buyForm.getMount(),"");
+			params="rsGzBuyDTO="+Json.toJson(buyFundVo).toString()+"userid="+userInfo.getUserId();
+			//发送同花顺获取结果
+			String result=HttpUtil.sendRequest("", true, "POST", params, true);
+			//成功则将资金存入同花顺基金账户调取接口
+			Trade trade=new Trade();
+			tradeMappger.add(trade);
+			
+		}
+		else{
+			//冻结账户余额
+		}
+		
+		
+		
+	}
+	
+	
+}

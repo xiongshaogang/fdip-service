@@ -1,0 +1,23 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+ 
+ <!-- 定义FDIP中所有用到的POJO类， 包含有：model， form， vo等 -->
+ 
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.trusdom</groupId>
+    <artifactId>FDIP</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+  </parent>
+  <artifactId>fdip-common</artifactId>
+  
+ <distributionManagement>  
+	<repository>  
+		<id>nexus-releases</id>  
+		<url>http://172.19.6.87:8066/nexus/content/repositories/releases</url>  
+	</repository>  
+	<snapshotRepository>  
+		<id>nexus-snapshots</id>  
+		<url>http://172.19.6.87:8066/nexus/content/repositories/snapshots/</url>  
+	</snapshotRepository>  
+ </distributionManagement>
+</project>

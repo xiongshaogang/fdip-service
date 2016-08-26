@@ -1,0 +1,52 @@
+package com.trusdom.fdip.form;
+
+import javax.validation.constraints.Min;
+import javax.validation.constraints.Pattern;
+
+import org.hibernate.validator.constraints.NotBlank;
+
+import com.trusdom.fdip.common.Json;
+
+public class SyncIncomeForm {
+	
+	@Pattern(regexp="^((?:19|20)\\d\\d)-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01])$", message="非法的日期格式")
+	@NotBlank(message="查询日期不能为空")
+	public String day;
+	
+	@Min(value=1, message="当前页数最小为1")
+	public int page;
+	
+	@Min(value=1, message="每页大小最小为1")
+	public int size;
+
+	public String getDay() {
+		return day;
+	}
+
+	public void setDay(String day) {
+		this.day = day;
+	}
+
+	public int getPage() {
+		return page;
+	}
+
+	public void setPage(int page) {
+		this.page = page;
+	}
+
+	public int getSize() {
+		return size;
+	}
+
+	public void setSize(int size) {
+		this.size = size;
+	}
+
+	@Override
+	public String toString() {
+		return Json.toJson(this).toString();
+	}
+	
+	
+}

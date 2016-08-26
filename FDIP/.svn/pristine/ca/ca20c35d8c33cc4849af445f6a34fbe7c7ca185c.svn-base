@@ -1,0 +1,34 @@
+package com.trusdom.fdip.services.hessian.impl.demo;
+
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+
+import com.trusdom.fdip.form.DemoPersonForm;
+import com.trusdom.fdip.model.DemoPerson;
+import com.trusdom.fdip.services.hessian.demo.DemoService;
+
+/**
+ * 
+* @ClassName: DemoServiceImpl 
+* @Description: Hessian服务实现
+* @author zjb 
+* @date May 4, 2016 6:01:27 PM
+*
+ */
+@Service("demoService")
+public class DemoServiceImpl implements DemoService {
+
+	@Override
+	public List<DemoPerson> query() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void insert(DemoPersonForm form) {
+		// TODO Auto-generated method stub
+
+	}
+
+}

@@ -1,0 +1,51 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.controller;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.trusdom.fdip.form.BuyForm;
+import com.trusdom.fdip.services.BuyFundService;
+import com.trusdom.fdip.vo.BuyResultVo;
+import com.trusdom.fdip.vo.ResultVo;
+
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年5月18日 上午11:47:44
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+
+@Controller
+@RequestMapping("/buy")
+public class BuyFundController {
+	
+	
+	
+	@Autowired
+	BuyFundService buyFundService;
+	
+	@RequestMapping(method=RequestMethod.POST)
+	@ResponseBody
+	public BuyResultVo buy(@RequestBody  @Validated BuyForm buyForm,BindingResult bindingResult) throws Exception{
+		if(bindingResult.hasErrors()){
+			BuyResultVo vo=new BuyResultVo();
+			vo.setErrCode("4001");
+			vo.setErrMsg(bindingResult.getFieldError().getDefaultMessage());
+			return vo;
+		}
+		return buyFundService.buy(buyForm);
+	}
+}

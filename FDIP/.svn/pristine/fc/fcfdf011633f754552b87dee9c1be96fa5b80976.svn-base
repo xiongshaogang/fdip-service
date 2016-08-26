@@ -1,0 +1,171 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.services;
+
+import java.nio.Buffer;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+
+import org.apache.commons.httpclient.HttpsURL;
+import org.jboss.logging.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
+
+import com.trusdom.fdip.common.Config;
+import com.trusdom.fdip.common.HttpUtil;
+import com.trusdom.fdip.common.Json;
+import com.trusdom.fdip.form.BuyOrRedeForm;
+import com.trusdom.fdip.mappers.AccountFundAmountMapper;
+import com.trusdom.fdip.mappers.CapitalAllocationMapper;
+import com.trusdom.fdip.mappers.TradeMapper;
+import com.trusdom.fdip.model.Account;
+import com.trusdom.fdip.model.Account3RD;
+import com.trusdom.fdip.model.AccountFundAmount;
+import com.trusdom.fdip.model.BuyFound;
+import com.trusdom.fdip.model.CapitalAllocation;
+import com.trusdom.fdip.model.Channel;
+import com.trusdom.fdip.model.Trade;
+import com.trusdom.fdip.spring.configs.RedisConfig;
+import com.trusdom.fdip.vo.ThsBuyFundRequestVo;
+import com.trusdom.fdip.vo.ThsMcipBuyFundRequestVo;
+import com.trusdom.fdip.vo.ThsMcipBuyFundResponseVo;
+import com.trusdom.fdip.vo.BuyResultVo;
+import com.trusdom.fdip.vo.ThsAccountVo;
+import com.trusdom.fdip.vo.ThsResponseVo;
+import com.trusdom.fdip.vo.UserVo;
+
+/**
+ * @author zhihuayang E-mail:425273175@qq.com
+ * @date 创建时间：2016年5月16日 上午11:04:27
+ * @version 1.0
+ * @parameter
+ * @return
+ */
+
+@Service
+public class BuyFundService {
+
+	private static Logger log = Logger.getLogger(BuyFundService.class);
+	
+	private static final String MCIPURL=Config.getConfigByKey("mcipBaseUrl", "");
+	
+	private static final String CBIPURL=Config.getConfigByKey("cbipBaseUrl", "");
+
+	@Autowired
+	TradeMapper tradeMapper;
+
+	@Autowired
+	AccountFundAmountMapper accountFundAmountMapper;
+
+	@Autowired
+	FundService fundService;
+
+	@Autowired
+	HolidayService holidayService;
+
+	@Autowired
+	UserVoService userVoService;
+
+	@Autowired
+	AccountService accountService;
+	
+	@Autowired
+	CapitalAllocationMapper capitalAllocationMapper;
+
+	@Autowired
+	RestTemplate restTemplate;
+
+	private Date getDate(Date date, String HHmmss) throws ParseException {
+		return new SimpleDateFormat("yyyyMMddHHmmss")
+				.parse(new SimpleDateFormat("yyyyMMdd").format(new Date() + HHmmss));
+	}
+
+	/**
+	 * 购买基金业务流程 1.个人余额账户转入个人冻结账户 2.向同花顺发起申购请求,成功记录资金划拨
+	 * 3.记录申购记录trade(需调用节假日获取资金划拨时间),修改基金账户余额信息 4.若第一部失败则直接停止请求
+	 * 5.若第2步失败则将个人冻结转入个人余额账户
+	 * 
+	 * @param fundCode
+	 * @param transActionAccountId
+	 * @param mount
+	 * @param txTraceNo
+	 * @throws Exception
+	 */
+
+	@Transactional
+	public BuyResultVo buyThs(BuyOrRedeForm buyOrRedeForm) {
+		BuyResultVo buyResultVo = new BuyResultVo();
+		// 通过fundcode获取渠道id
+		Channel channel = fundService.queryChannelByFundCode(buyOrRedeForm.getFundCode());
+		// 发送到cbip申请冻结账户
+		String params = "";
+		try {
+			restTemplate.postForEntity(CBIPURL, params, String.class).getBody();
+			UserVo userVo = userVoService.finduserVo(buyOrRedeForm.getFundCode(), channel.getId());
+			ThsBuyFundRequestVo buyFundVo = new ThsBuyFundRequestVo(buyOrRedeForm.getFundCode(), userVo.getTradePassword(),
+					userVo.getTransActionAccountId(), buyOrRedeForm.getAmount(), buyOrRedeForm.getTradeNo());
+			ThsMcipBuyFundRequestVo thsMcipBuyFundRequestVo=new ThsMcipBuyFundRequestVo();
+			thsMcipBuyFundRequestVo.setFundCode(buyOrRedeForm.getFundCode());
+			thsMcipBuyFundRequestVo.setMoney(buyOrRedeForm.getAmount().toString());
+			thsMcipBuyFundRequestVo.setTradePassword(userVo.getTradePassword());
+			thsMcipBuyFundRequestVo.setTransActionAccountId(userVo.getTransActionAccountId());
+			thsMcipBuyFundRequestVo.setTxTraceNo(buyOrRedeForm.getTradeNo());
+			thsMcipBuyFundRequestVo.setUserid(userVo.getUserId());
+			// 发送同花顺获取结果
+			try {
+				ThsMcipBuyFundResponseVo thsMcipBuyFundResponseVo = restTemplate.postForEntity(MCIPURL+"/ths/fund", thsMcipBuyFundRequestVo, ThsMcipBuyFundResponseVo.class).getBody();
+				Trade trade = new Trade();
+				trade.setPayDay(holidayService.getPayDay());
+				trade.setAmount(buyOrRedeForm.getAmount());
+				trade.setCreateTime(new Date());
+				if (new Date().getHours() < 15 && holidayService.isWorkday(new Date()))
+					trade.setEditableDeadline(getDate(new Date(), "150000"));
+				else
+					trade.setEditableDeadline(getDate(holidayService.nextWorkDay(Calendar.getInstance()), "150000"));
+				trade.setExtTradeNo(thsMcipBuyFundResponseVo.getAppsheetSerialNo());
+				trade.setFund(fundService.queryByCode(buyOrRedeForm.getFundCode()).getId());
+				trade.setInterestTime(getDate(holidayService.nextWorkDay(Calendar.getInstance()), "170000"));
+				trade.setTradeType("申购");
+				trade.setSgAmount(buyOrRedeForm.getAmount());
+				trade.setStatus("成功");
+				trade.setThrdAccount(userVo.getAccount3RD());
+				trade.setTradeNo(buyOrRedeForm.getTradeNo());
+				trade.setUpdateTime(new Date());
+				tradeMapper.add(trade);
+				// 修改个人基金账户余额信息
+				AccountFundAmount accountFundAmount = accountFundAmountMapper.findByAccountAndChannel(
+						accountService.queryAccountByAccountNo(buyOrRedeForm.getAccountNo()).getId(), channel.getId());
+				accountFundAmount.setAmount(accountFundAmount.getAmount().add(buyOrRedeForm.getAmount()));
+				accountFundAmountMapper.update(accountFundAmount);
+				// 调用发起资金划拨从个人冻结账户到同花顺基金账户
+				params = "";
+				restTemplate.postForEntity("", params, String.class);
+				// 记录资金划拨
+				 CapitalAllocation capitalAllocation=new
+				 CapitalAllocation(buyOrRedeForm.getTradeNo(), thsMcipBuyFundResponseVo.getAppsheetSerialNo(), buyOrRedeForm.getAmount(), 1,
+				 new Date());
+				capitalAllocationMapper.insert(capitalAllocation);
+				buyResultVo.setTotalAmount(accountFundAmount.getAmount());
+				buyResultVo.setTradeNo(buyOrRedeForm.getTradeNo());
+				buyResultVo.setApplyNo("");
+			} catch (Exception e) {
+				// 资金从个人冻结账户转入到余额账户
+				String result = restTemplate.postForEntity("", params, String.class).getBody();
+				//同时记录资金划拨流水
+				buyResultVo.createError("fund.buy");
+			}
+		} catch (Exception e) {
+			log.error(e.getMessage());
+			buyResultVo.createError("cbip.systemError");
+		}
+		return buyResultVo;
+	}
+
+}

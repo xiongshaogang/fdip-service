@@ -1,0 +1,5 @@
+package com.trusdom.fdip.services.mcip;
+
+public class McipFundService {
+
+}

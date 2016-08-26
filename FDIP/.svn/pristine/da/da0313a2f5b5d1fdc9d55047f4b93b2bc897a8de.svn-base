@@ -1,0 +1,42 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.services;
+
+import org.springframework.stereotype.Service;
+
+import com.trusdom.fdip.form.BuyForm;
+
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年5月18日 下午4:27:59
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+@Service
+public class RedeFundService {
+	
+	
+	/**
+	 * 赎回
+	 * 1.查询基金账户余额是否大于赎回金额,不足则取消本次赎回
+	 * 2.判断今日是否为工作日
+	 * 3.为工作日判断是否在3点之前
+	 * 4.在3点之前需要判断可修改的份额是否大于赎回的份额
+	 * 5.直接调用修改份额接口
+	 * 6.回到4修改份额不足,判断计息份额+可修改份额是否足够
+	 * 7.足够则调用修改份额接口+快速赎回接口
+	 * 8.不够直接等到T+2日的下午5点之后调用快速赎回接口
+	 * 9.回到3判断T+1日修改份额是否大于赎回份额
+	 * 10.大于直接调用修改份额接口
+	 * 11.回到9判断是否计息金额+T+1修改份额大于赎回份额
+	 * 12.大于则调用修改份额+快速赎回份额
+	 * 13.回到11不够则在
+	 * @param buyform
+	 */
+	public void Rede(BuyForm buyform){
+		
+	}
+
+}

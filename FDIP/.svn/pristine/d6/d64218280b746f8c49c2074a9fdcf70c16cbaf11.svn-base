@@ -1,0 +1,55 @@
+package com.trusdom.fdip.form;
+
+import javax.validation.constraints.Size;
+
+import org.hibernate.validator.constraints.NotBlank;
+
+import com.trusdom.fdip.common.BeanUtils;
+import com.trusdom.fdip.common.Json;
+import com.trusdom.fdip.model.DemoPerson;
+
+public class DemoPersonForm {
+
+	private long id;
+	
+	@NotBlank(message="姓名不能为空!")
+	private String name;
+	
+	@Size(min=0,max=150,message="非法的年龄值!")
+	private int age;
+
+	public long getId() {
+		return id;
+	}
+
+	public void setId(long id) {
+		this.id = id;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public int getAge() {
+		return age;
+	}
+
+	public void setAge(int age) {
+		this.age = age;
+	}
+
+	@Override
+	public String toString() {
+		return Json.toJson(this).toString();
+	}
+	
+	public static DemoPerson toDemoPerson(DemoPersonForm from){
+		DemoPerson person = new DemoPerson();
+		BeanUtils.copyProperties(from, person);
+		return person;
+	}
+}

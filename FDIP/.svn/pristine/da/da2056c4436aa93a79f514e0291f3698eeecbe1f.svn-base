@@ -1,0 +1,122 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.common;
+
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.ConnectException;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
+
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+
+import org.jboss.logging.Logger;
+
+
+/**
+ * @author zhihuayang E-mail:425273175@qq.com
+ * @date 创建时间：2016年5月11日 上午9:20:59 可以适用于http和https请求
+ * @version 1.0
+ * @parameter
+ * @return
+ */
+
+public class HttpUtil {
+	private static Logger log=Logger.getLogger(HttpUtil.class);
+	
+	public static String sendRequest(String url,boolean https,String method,String params ,boolean json) throws  Exception{
+		HttpURLConnection conn = null;
+		try {
+			URL requsturl = new URL(url);
+			if(https){
+				 conn = (HttpsURLConnection)requsturl.openConnection();
+				 ((HttpsURLConnection) conn).setSSLSocketFactory(SSLUtil.getSSl());				
+			}
+			if(json)
+				conn.setRequestProperty("Content-Type","application/json; charset=UTF-8"); 
+			else
+				conn.setRequestProperty("Content-Type","application/x-www-form-urlencoded");
+			conn.setDoOutput(true);
+			conn.setDoInput(true);
+			conn.setUseCaches(false);
+			conn.setConnectTimeout(3000);
+			conn.setReadTimeout(3000);
+			conn.setRequestMethod(method);
+			if(method.equalsIgnoreCase("POST")){
+				 DataOutputStream out = new DataOutputStream(conn.getOutputStream());
+				 out.write(params.getBytes("UTF-8"));
+				 out.flush();
+				 out.close();
+			}
+			else
+			conn.connect();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(
+                    conn.getInputStream()));
+            String lines;
+            StringBuffer sb = new StringBuffer("");
+            while ((lines = reader.readLine()) != null) {
+                lines = new String(lines.getBytes(), "utf-8");
+                sb.append(lines);
+            }
+            reader.close();
+            // 断开连接
+            conn.disconnect();
+            return sb.toString();
+			
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			//连接异常
+			log.error(e.getMessage());
+			throw new Exception();
+		}
+	}
+	
+	public static void main(String[] args) throws Exception {
+		System.out.println(HttpUtil.sendRequest("https://www.baidu.com", true, "GET", null,false));
+	}
+
+}
+
+/**
+ * 生成sslfactroy
+ * @author lenovo
+ *
+ */
+ class SSLUtil {
+	
+	static final TrustManager[] trustAllCerts = new TrustManager[] { new X509TrustManager() {
+		public X509Certificate[] getAcceptedIssuers() {
+			return null;
+		}
+
+		public void checkClientTrusted(X509Certificate[] certs, String authType) {
+		}
+
+		public void checkServerTrusted(X509Certificate[] certs, String authType) {
+		}
+		}};
+	
+	static   SSLSocketFactory getSSl() throws NoSuchAlgorithmException, KeyManagementException, NoSuchProviderException{
+		SSLContext sc = SSLContext.getInstance("TLS"); 
+//		SSLContext sc =  SSLContext.getInstance("SSL", "SunJSSE");
+		sc.init(null, trustAllCerts, new SecureRandom()); 
+		return sc.getSocketFactory();
+	}
+	
+
+
+
+}

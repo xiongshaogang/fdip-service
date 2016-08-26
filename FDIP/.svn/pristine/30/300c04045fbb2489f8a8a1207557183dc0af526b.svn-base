@@ -1,0 +1,19 @@
+package com.trusdom.fdip.mappers;
+
+import java.util.List;
+
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Options;
+import org.apache.ibatis.annotations.Select;
+
+import com.trusdom.fdip.model.DemoPerson;
+
+public interface DemoMapper {
+
+	@Select({ "select * from person" })
+	List<DemoPerson> query();
+	
+	@Insert({ "insert into person(name, age) values(#{name}, #{age})" })
+	@Options(keyProperty="id", keyColumn="id", useGeneratedKeys=true)
+	void instert(DemoPerson person);
+}

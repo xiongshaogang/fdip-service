@@ -1,0 +1,37 @@
+package com.trusdom.fdip.services;
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.trusdom.fdip.mappers.Account3RDMapper;
+import com.trusdom.fdip.model.Account;
+import com.trusdom.fdip.model.Account3RD;
+import com.trusdom.fdip.model.Channel;
+
+@Service
+public class Account3RDService {
+	@Autowired
+	Account3RDMapper account3RDMapper;
+	
+	public Account3RD queryByChannlAndAccount(Channel channel,Account account){
+		return account3RDMapper.findByChannlAndAccount(channel.getId(), account.getId());
+	}
+	
+	public Account3RD queryByChannlAndAccount(Long channelId,String accountNo){
+		return account3RDMapper.findByChannlAndAccount2(channelId, accountNo);
+	}
+	
+	public List<Account3RD> queryByChannel(Channel channel){
+		return account3RDMapper.findByChannl(channel.getId());
+	}
+	
+	public Account3RD findById(Long id){
+		return account3RDMapper.findById(id);
+	}
+	
+	public Account3RD findBy3RD(String userId){
+		return account3RDMapper.findBy3rd(userId);
+	}
+}

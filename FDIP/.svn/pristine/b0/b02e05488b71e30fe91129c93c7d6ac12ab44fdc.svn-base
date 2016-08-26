@@ -1,0 +1,81 @@
+package com.trusdom.fdip.services;
+
+import org.eclipse.jetty.util.security.Credential.MD5;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.trusdom.fdip.common.BeanUtils;
+import com.trusdom.fdip.common.HttpUtil;
+import com.trusdom.fdip.common.Json;
+import com.trusdom.fdip.form.AccountForm;
+import com.trusdom.fdip.mappers.Account3RDMapper;
+import com.trusdom.fdip.mappers.AccountMapper;
+import com.trusdom.fdip.mappers.ChannelMapper;
+import com.trusdom.fdip.model.Account;
+import com.trusdom.fdip.model.Account3RD;
+import com.trusdom.fdip.model.Channel;
+import com.trusdom.fdip.model.account3RD.ThxAccount;
+import com.trusdom.fdip.vo.BaseVo;
+
+@Service
+public class AccountService {
+	
+	@Autowired
+	AccountMapper accountMapper;
+	
+	@Autowired
+	Account3RDMapper account3RDMapper;
+	
+	@Autowired
+	ChannelMapper channelMapper;
+	
+	/**
+	 * 根据accountNo查询账户
+	 * @param accountNo
+	 * @return
+	 */
+	public Account queryAccountByAccountNo(String accountNo){
+		return accountMapper.findByAccountNo(accountNo);
+	}
+	
+	/**
+	 * 开户
+	 * @param form
+	 */
+	@Transactional(isolation=Isolation.SERIALIZABLE)
+	public BaseVo openAccount(AccountForm form){
+		BaseVo baseVo = new BaseVo();
+		//TODO 调用MCIP进行开户
+		String result = HttpUtil.sendRequest("url", false, "post", Json.toJson(form).toString(), true);
+		
+		ThxAccount thxAccount = new ThxAccount();
+		BeanUtils.copyProperties(form, thxAccount);
+		JSONObject resultObject = new JSONObject(result);
+		String transAccount = resultObject.get("transActionAccountId").toString();
+		String custId = resultObject.get("custId").toString();
+		thxAccount.setTransAccount(transAccount);
+		thxAccount.setCustId(custId);
+		
+		Channel channel = channelMapper.findByCode(form.getChannleCode());
+		Account account = new Account();
+		account.setAccountNo(form.getAccountNo());
+		account.setBankAccountNo(form.getBankAccountNo());
+		account.setTradePwd(MD5.digest(form.getAccountNo()));    //TODO MD5加密交易密码
+		accountMapper.insert(account);
+		
+		Account3RD account3RD = new Account3RD();
+		account3RD.setAccount(account);
+		account3RD.setChannel(channel);
+		account3RD.setAccountInfo(Json.toJson(thxAccount).toString());
+		account3RDMapper.insert(account3RD);
+		return baseVo;
+	}
+	
+	public BaseVo balance(){
+		return null;
+	}
+	
+}

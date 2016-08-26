@@ -1,0 +1,32 @@
+package com.trusdom.fdip.scheduler;
+
+import java.text.SimpleDateFormat;
+
+import org.quartz.DisallowConcurrentExecution;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.quartz.QuartzJobBean;
+import org.springframework.stereotype.Service;
+
+/**
+ * 
+* @ClassName: SyncIncomeJob 
+* @Description: 同步基金收益
+* @author zjb 
+* @date May 4, 2016 6:01:50 PM
+*
+ */
+@Service
+@DisallowConcurrentExecution
+public class SyncIncomeJob extends QuartzJobBean {
+	private static final Logger logger = LoggerFactory.getLogger(SyncIncomeJob.class);
+	SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	@Override
+	protected void executeInternal(JobExecutionContext arg0)
+			throws JobExecutionException {
+		
+	}
+	
+}

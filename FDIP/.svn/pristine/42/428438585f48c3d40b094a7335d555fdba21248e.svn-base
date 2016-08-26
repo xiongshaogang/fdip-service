@@ -1,0 +1,94 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.vo;
+
+/**
+ * @author zhihuayang E-mail:425273175@qq.com
+ * @date 创建时间：2016年5月17日 下午2:37:00
+ * @version 1.0
+ * @parameter
+ * @return
+ */
+
+public class BuyFundVo {
+
+	private String fundCode;
+
+	private String taCode;
+
+	private String tradePassword;
+
+	private String transActionAccountId;
+
+	private String supportShareType;
+
+	private double money;
+
+	private String txTraceNo;
+
+	public String getFundCode() {
+		return fundCode;
+	}
+
+	public void setFundCode(String fundCode) {
+		this.fundCode = fundCode;
+	}
+
+	public String getTaCode() {
+		return taCode;
+	}
+
+	public void setTaCode(String taCode) {
+		this.taCode = taCode;
+	}
+
+	public String getTradePassword() {
+		return tradePassword;
+	}
+
+	public void setTradePassword(String tradePassword) {
+		this.tradePassword = tradePassword;
+	}
+
+	public String getTransActionAccountId() {
+		return transActionAccountId;
+	}
+
+	public void setTransActionAccountId(String transActionAccountId) {
+		this.transActionAccountId = transActionAccountId;
+	}
+
+	public String getSupportShareType() {
+		return supportShareType;
+	}
+
+	public void setSupportShareType(String supportShareType) {
+		this.supportShareType = supportShareType;
+	}
+
+	public double getMoney() {
+		return money;
+	}
+
+	public void setMoney(double money) {
+		this.money = money;
+	}
+
+	public String getTxTraceNo() {
+		return txTraceNo;
+	}
+
+	public void setTxTraceNo(String txTraceNo) {
+		this.txTraceNo = txTraceNo;
+	}
+	
+	public BuyFundVo(String fundCode,String tradePassword, String transActionAccountId,double mount,String txTraceNo){
+		this.fundCode=fundCode;
+		this.tradePassword=tradePassword;
+		this.transActionAccountId=transActionAccountId;
+		this.money=money;
+		this.txTraceNo=txTraceNo;
+	}
+
+}

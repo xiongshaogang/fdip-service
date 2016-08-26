@@ -1,0 +1,7 @@
+#####MCIP½Ó¿Ú·ÃÎÊ#########
+mcipBaseUrl=http://100.98.221.141:8090/mc-ws
+ths.fundOpenAccount=/ths/account
+ths.fundStatus=/ths/fundLimitStatus
+ths.fundIncome=/ths/profile
+
+cbipBaseUrl=http://100.98.221.141:8090/mc-ws

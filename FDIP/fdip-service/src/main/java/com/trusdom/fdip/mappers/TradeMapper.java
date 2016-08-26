@@ -1,0 +1,97 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.mappers;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.One;
+import org.apache.ibatis.annotations.Options;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Result;
+import org.apache.ibatis.annotations.Results;
+import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
+import org.apache.ibatis.mapping.FetchType;
+
+import com.trusdom.fdip.model.Trade;
+import com.trusdom.fdip.model.Trade.Status;
+import com.trusdom.fdip.model.Trade.TradeType;
+import com.trusdom.fdip.vo.AmountTransferVo;
+
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年5月17日 下午5:19:25
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+
+public interface TradeMapper {
+	
+	@Insert("insert into trade(account, thrdAccount,tradeNo,extTradeNo,amount,realAmount,status,tradeType,createTime,updateTime,channel,fund,payday,editableDeadline,transferNo) "
+			+ "values(#{account.id}, #{thrdAccount},#{tradeNo},#{extTradeNo},#{amount},#{realAmount},#{status},#{tradeType},#{createTime},#{updateTime},#{channel.id},#{fund.id},#{payday},#{editableDeadline},#{transferNo})")
+	@Options(keyProperty="id",keyColumn="id",useGeneratedKeys=true)
+	public void add(Trade trade);
+	
+	@Select("select * from trade where extTradeNo = #{extTradeNo}")
+	@Results({
+		@Result(property="account",column="account",one=@One(select="com.trusdom.fdip.mappers.AccountMapper.findById",fetchType=FetchType.EAGER)),
+		@Result(property="channel",column="channel",one=@One(select="com.trusdom.fdip.mappers.ChannelMapper.findById",fetchType=FetchType.EAGER)),
+		@Result(property="fund",column="fund",one=@One(select="com.trusdom.fdip.mappers.FundMapper.findById",fetchType=FetchType.EAGER))
+	})
+	Trade findByExtTradeNo(@Param("extTradeNo")String extTradeNo);
+	
+	@Select("select * from trade where tradeNo = #{tradeNo}")
+	@Results({
+		@Result(property="account",column="account",one=@One(select="com.trusdom.fdip.mappers.AccountMapper.findById",fetchType=FetchType.EAGER)),
+		@Result(property="channel",column="channel",one=@One(select="com.trusdom.fdip.mappers.ChannelMapper.findById",fetchType=FetchType.EAGER)),
+		@Result(property="fund",column="fund",one=@One(select="com.trusdom.fdip.mappers.FundMapper.findById",fetchType=FetchType.EAGER))
+	})
+	Trade findByTradeNo(@Param("tradeNo")String tradeNo);
+	
+	
+	@Select("select * from trade where channel = #{channel} and tradeType = #{tradeType} and status = #{status}")
+	@Results({
+		@Result(property="account",column="account",one=@One(select="com.trusdom.fdip.mappers.AccountMapper.findById",fetchType=FetchType.EAGER)),
+		@Result(property="channel",column="channel",one=@One(select="com.trusdom.fdip.mappers.ChannelMapper.findById",fetchType=FetchType.EAGER)),
+		@Result(property="fund",column="fund",one=@One(select="com.trusdom.fdip.mappers.FundMapper.findById",fetchType=FetchType.EAGER))
+	})
+	List<Trade> queryByChannelAndStatus(@Param("channel") Long channel, @Param("tradeType") TradeType tradeType, @Param("status") Status status);
+	
+	@Select("select * from trade where thrdAccount=#{thrdAccount} and fund=#{fund} and sgAmount>0 and editableDeadline>=#{editableDeadline} and status!='FAIL' ")
+	List<Trade> findTotalmodify(@Param("thrdAccount") Long thrdAccount,@Param("fund")Long fund,@Param("editableDeadline") Date editableDeadline);
+	
+	@Select("select sum(realAmount) from trade where thrdAccount = #{thrdAccount} and realAmount > 0 and createTime > #{startTime} and status!='FAIL'")
+	BigDecimal unconfirmTotalAmount(@Param("thrdAccount")Long thrdAccount,@Param("fund")Long fund, @Param("startTime")Date startTime);
+	
+	@Select("selct * from trade where tradeType='PURCHARSE' and realAmount>0 and payday=#{payday}")
+	List<Trade> findByPayDay(@Param("payday") String payday);
+	
+	@Select("select SUM(realAmount) as total,channel from trade where tradeType='PURCHASE' and payday=#{payday} and realAmount>0 and status!='FAIL'  GROUP BY channel")
+	List<AmountTransferVo> findTransfer(@Param("payday")String payday);
+	
+	@Update("update trade set realAmount=#{realAmount},updateTime=#{updateTime} where id=#{id}")
+	public void updateAmount(@Param("realAmount") BigDecimal realAmount,@Param("updateTime") Date updateTime,@Param("id") Long id );
+	
+	@Update("update trade set status=#{status}, updateTime=#{updateTime}, extTradeNo=#{extTradeNo} where id=#{id}")
+	public void updateStatus(@Param("status") Status status,@Param("extTradeNo") String extTradeNo,@Param("updateTime") Date updateTime,@Param("id") Long id);
+	
+	@Update("update trade set status = #{status}, updateTime = #{updateTime} where tradeNo = #{tradeNo}")
+	public void updateStatusByTradeNo(@Param("tradeNo") String tradeNo, @Param("status") Status status, @Param("updateTime") Date updateTime);
+	
+	@Select("select * from trade where channel = #{channel} and tradeType = 'PURCHASE' and status != 'FAIL' and createTime > #{startTime} and createTime <= #{endTime}")
+	@Results({
+		@Result(property="account",column="account",one=@One(select="com.trusdom.fdip.mappers.AccountMapper.findById",fetchType=FetchType.EAGER)),
+		@Result(property="channel",column="channel",one=@One(select="com.trusdom.fdip.mappers.ChannelMapper.findById",fetchType=FetchType.EAGER)),
+		@Result(property="fund",column="fund",one=@One(select="com.trusdom.fdip.mappers.FundMapper.findById",fetchType=FetchType.EAGER))
+	})
+	public List<Trade> queryByDateForVerify(@Param("channel") Long channel, @Param("startTime") String startTime, @Param("endTime") String endTime);
+
+	@Select("select sum(realAmount) from trade where channel = #{channel} and tradeType = 'PURCHASE'  and status != 'FAIL' and createTime > #{startTime} and createTime <= #{endTime}")
+	public BigDecimal countTotalAmountByDateForVerify(@Param("channel") Long channel, @Param("startTime") String startTime, @Param("endTime") String endTime);
+
+}

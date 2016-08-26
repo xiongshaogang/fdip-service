@@ -1,0 +1,20 @@
+package com.trusdom.fdip.services;
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.trusdom.fdip.mappers.HolidayMapper;
+import com.trusdom.fdip.model.Holiday;
+
+@Service
+public class HolidayService {
+	
+	@Autowired
+	HolidayMapper holidayMapper;
+	
+	public void syncHoliday(List<Holiday> holidays){
+		holidayMapper.sync(holidays);
+	}
+}

@@ -1,0 +1,65 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.mappers;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.One;
+import org.apache.ibatis.annotations.Options;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Result;
+import org.apache.ibatis.annotations.Results;
+import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
+import org.apache.ibatis.mapping.FetchType;
+
+import com.trusdom.fdip.model.Trade;
+import com.trusdom.fdip.model.Trade.Status;
+import com.trusdom.fdip.vo.AmountTransferVo;
+
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年5月17日 下午5:19:25
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+
+public interface TradeMapper {
+	
+	@Insert("insert into trade(account, thrdAccount,tradeNo,extTradeNo,amount,realAmount,status,tradeType,createTime,updateTime,channel,fund,payday,editableDeadline,transferNo) "
+			+ "values(#{account.id}, #{thrdAccount},#{tradeNo},#{extTradeNo},#{amount},#{realAmount},#{status},#{tradeType},#{createTime},#{updateTime},#{channel.id},#{fund.id},#{payday},#{editableDeadline},#{transferNo})")
+	@Options(keyProperty="id",keyColumn="id",useGeneratedKeys=true)
+	public void add(Trade trade);
+	
+	@Select("select * from trade where extTradeNo = #{extTradeNo}")
+	@Results({
+		@Result(property="account",column="account",one=@One(select="com.trusdom.fdip.mappers.AccountMapper.findById",fetchType=FetchType.EAGER)),
+		@Result(property="channel",column="channel",one=@One(select="com.trusdom.fdip.mappers.ChannelMapper.findById",fetchType=FetchType.EAGER)),
+		@Result(property="fund",column="fund",one=@One(select="com.trusdom.fdip.mappers.FundMapper.findById",fetchType=FetchType.EAGER))
+	})
+	Trade findByExtTradeNo(@Param("extTradeNo")String extTradeNo);
+	
+	@Select("select * from trade where thrdAccount=#{thrdAccount} and fund=#{fund} and sgAmount>0 and editableDeadline>=#{editableDeadline} and status='SUCCESS' ")
+	List<Trade> findTotalmodify(@Param("thrdAccount") Long thrdAccount,@Param("fund")Long fund,@Param("editableDeadline") Date editableDeadline);
+	
+	@Select("select sum(realAmount) from trade where thrdAccount = #{thrdAccount} and fund = #{fund} and realAmount > 0 and editableDeadline >= #{now}")
+	BigDecimal getTotalAmountModifiable(@Param("thrdAccount") Long thrdAccount,@Param("fund")Long fund,@Param("now") Date now);
+	
+	@Select("selct * from trade where tradeType='PURCHARSE' and sgAmount>0 and payday=#{payday}")
+	List<Trade> findByPayDay(@Param("payday") String payday);
+	
+	@Select("select SUM(realAmount) as total,channel from trade where tradeType='PURCHASE' and payday=#{payday} and realAmount>0 and status='SUCCESS'  GROUP BY channel")
+	List<AmountTransferVo> findTransfer(@Param("payday")String payday);
+	
+	@Update("update trade set realAmount=#{realAmount},updateTime=#{updateTime} where id=#{id}")
+	public void updateAmount(@Param("realAmount") BigDecimal realAmount,@Param("updateTime") Date updateTime,@Param("id") Long id );
+	
+//	@Update("update trade set status=#{status}, updateTime=#{updateTime}, extTradeNo=#{extTradeNo} where id=#{id}")
+//	public void updateStatus1(@Param("status") Status status,@Param("extTradeNo") String extTradeNo,@Param("updateTime") Date updateTime,@Param("id") Long id);
+	
+}

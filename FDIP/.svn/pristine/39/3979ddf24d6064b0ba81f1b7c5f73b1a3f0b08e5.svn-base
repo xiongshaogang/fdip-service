@@ -1,0 +1,364 @@
+package com.trusdom.fdip.services;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.lang.reflect.Method;
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.trusdom.fdip.common.Constants;
+import com.trusdom.fdip.common.DateUtil;
+import com.trusdom.fdip.common.Json;
+import com.trusdom.fdip.common.NotifyMessageUtil;
+import com.trusdom.fdip.model.Account.Status;
+import com.trusdom.fdip.model.Account3RD;
+import com.trusdom.fdip.model.AccountFundAmount;
+import com.trusdom.fdip.model.Channel;
+import com.trusdom.fdip.model.Fund;
+import com.trusdom.fdip.model.Income;
+import com.trusdom.fdip.model.Trade;
+import com.trusdom.fdip.model.account3RD.ThsAccount;
+import com.trusdom.fdip.services.mcip.McipThsFundService;
+import com.trusdom.fdip.spring.configs.RedisConfig;
+import com.trusdom.fdip.vo.BaseVo;
+import com.trusdom.fdip.vo.VerifyVo;
+
+import redis.clients.jedis.Jedis;
+
+@Service
+public class VerifyService {
+	private static final Logger LOGGER = LoggerFactory.getLogger(VerifyService.class);
+	
+	private static final String LOCAL_VERIFY_FILE_NAME = "365_D_%s_ZJ.txt";
+	
+	private static boolean is_read =  true;
+		
+	@Autowired
+	McipThsFundService mcipThsFundService;
+	@Autowired
+	NotifyMessageUtil notifyMessageUtil;
+	@Autowired
+	AccountService accountService;
+	@Autowired
+	AccountFundAmountService accountFundAmountService;
+	@Autowired
+	ChannelService channelService;
+	@Autowired
+	TradeService tradeService;
+	@Autowired
+	HolidayService holidayService;
+	
+	@Autowired
+	Account3RDService  account3RDService;
+	
+	@Autowired
+	FundService fundService;
+	
+	@Autowired
+	IncomeService incomeService;
+	
+	public File download(String date, String type){
+		String typeName=null;
+		switch (type) {
+		case "mx":
+			 typeName = "交易确认结果";
+			break;
+		case "dz":
+			typeName = "对账";
+			break;
+		case "fh":
+			typeName = "分红";
+			break;
+		default:
+			break;
+		}
+		LOGGER.info("开始下载同花顺{}文件...", typeName);
+		File file = mcipThsFundService.downLoadVerifyFile(StringUtils.isBlank(date)?Constants._SDF_DATE.format(new Date()):date, type);
+		String filePath = Constants.VERIFY_FILE_PATH+file.getName();
+		LOGGER.info("已下载同花顺{}: [{}]", typeName, filePath);
+		return file;
+	}
+	
+	public void read(File file,String type ,String typeName) {
+		LOGGER.info("开始解析{}文件...",typeName);
+		if (!file.exists()){
+			LOGGER.error("{}文件不存在",typeName);
+			return;
+		}
+		BufferedReader reader = null;
+		try{
+			reader = new BufferedReader(new FileReader(file));
+			String header = reader.readLine();
+			LOGGER.info("读取文件头信息: [{}]", header);
+			switch (type) {
+			case "mx":
+				singleReader(reader,this.getClass().getDeclaredMethod("syncTrade", String.class));
+				break;
+			case "dz":
+				singleReader(reader,this.getClass().getDeclaredMethod("singleIncome", String.class));
+				break;
+			case "fh":
+				singleReader(reader,this.getClass().getDeclaredMethod("singleVerify", String.class));
+				break;
+			default:
+				break;
+			}
+		}catch(Exception e){
+			e.printStackTrace();
+			LOGGER.error("读取{}文件异常!!",typeName);
+			LOGGER.error("异常信息: {}", e.toString());
+		}finally{
+			try {
+				reader.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	public void singleReader(BufferedReader reader,Method method){
+		String line = null;
+		try {
+			while(null != (line = reader.readLine())){
+				LOGGER.info("读取数据内容: [{}]", line);
+				if (StringUtils.isBlank(line)) continue;
+				try{
+					method.invoke(this, line);
+					}
+				catch(Exception e){
+					e.printStackTrace();
+					LOGGER.error("读取文件异常!!! {}", line);
+				}
+			}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	/**
+	 * 同步交易记录状态
+	 * 对于申购类型, 如果确认失败, 还需要同步基金账户余额(份额, 因为对于确认失败的申购, 同花顺会直接将申购份额退款至998账户)
+	 * @param line
+	 */
+	public void syncTrade(String line){
+		String[] infos = line.split("\\|");
+		String tradeNo = infos[0];
+		String extTradeNo = infos[1];
+		String confirmFlag = infos[10];
+		if (infos[12].equals("124")) return;//赎回暂不处理, 通过定时同步
+		String type = (infos[12].equals("122"))?"申购":"赎回";
+		Trade trade = tradeService.findByTradeNo(tradeNo);
+		if (!trade.getStatus().equals( com.trusdom.fdip.model.Trade.Status.INPROGRESS)){
+			LOGGER.warn("交易流水为[{}]的[{}]业务已经确认过, 无需再次确认!");
+			return;
+		}
+		Long trdAccountId = trade.getThrdAccount();
+		Account3RD account3RD = account3RDService.findById(trdAccountId);
+		 com.trusdom.fdip.model.Trade.Status status =  com.trusdom.fdip.model.Trade.Status.SUCCESS;
+		if (confirmFlag.equals("4")){
+			LOGGER.warn("交易流水为[{}]的[{}]业务确认失败!!", tradeNo, type);
+			status =  com.trusdom.fdip.model.Trade.Status.FAIL;
+			AccountFundAmount afa = accountFundAmountService.findByAccountAndChannelAndFund(account3RD.getAccount().getId(), trade.getChannel().getId(), trade.getFund().getId());
+			afa.setAmount(afa.getAmount().subtract(trade.getRealAmount()));
+			accountFundAmountService.update(afa);
+		}else{
+			status =  com.trusdom.fdip.model.Trade.Status.SUCCESS;
+			accountFundAmountService.confirmAmount(account3RD.getAccount().getId(), trade.getChannel().getId(), trade.getFund().getId(), trade.getRealAmount());
+		}
+		tradeService.updateStatusByTradeNo(trade.getId(), tradeNo, status);
+	}
+
+	public void singleIncome(String line){
+		String[] infos = line.split("\\|");
+		Account3RD account3RD=account3RDService.findBy3RD(infos[7]);
+		Channel channel=channelService.QueryByCode("THS");
+		Fund fund=fundService.queryByCode(infos[1]);
+		if(fund==null){
+			LOGGER.info("基金代码{}不存在,",infos[1]);
+			return ;
+		}
+		LOGGER.info("客户[{}]:[{}]获得利息[{}]",new Object[]{account3RD.getAccount().getName(),infos[3],infos[4]});
+		AccountFundAmount accountFundAmount=accountFundAmountService.findByAccountAndChannel(account3RD.getAccount().getId(), channel.getId());
+		accountFundAmount.setInterestAmount(accountFundAmount.getInterestAmount().add(new BigDecimal(infos[4])));
+		accountFundAmount.setIncome(accountFundAmount.getAmount().add(new BigDecimal(infos[4])));
+		accountFundAmountService.update(accountFundAmount);
+		Income income=incomeService.findIncomeByDay(account3RD.getAccount().getId(), channel.getId(), fund.getId(), infos[3]);
+		if(income!=null){
+			income.setRealIncome(new BigDecimal(infos[4]));
+			incomeService.updateRealAmount(income);
+		}
+	}
+	
+	public void singleVerify(String line){
+		String[] infos = line.split("\\|");
+		BigDecimal thsAmount = new BigDecimal(infos[0]).subtract(new BigDecimal(infos[1]));
+		String thsTransactionAccountId = infos[6];
+		Fund fund=fundService.queryByCode(infos[3]);
+		if(fund==null){
+			return ;
+		}
+		Account3RD account3RD = account3RDService.findBy3RD(thsTransactionAccountId);
+		Channel channel = channelService.QueryByCode(Constants.CHANNEL_THS);
+		AccountFundAmount afa = accountFundAmountService.findByAccountAndChannel(account3RD.getAccount().getId(), channel.getId());
+		if (null != afa){
+			if (thsAmount.doubleValue() != afa.getInterestAmount().doubleValue()){
+				LOGGER.warn("同花顺基金账户[{}]份额对账异常! 同花顺份额:[{}], 本地份额[{}]; 对账文件信息为:[{}]", new Object[]{thsTransactionAccountId, thsAmount.doubleValue(), afa.getInterestAmount().doubleValue(), line});
+				LOGGER.warn("异常用户[{}]将被禁用!!", account3RD.getAccount().getId());
+				accountService.enableOrDisable(account3RD.getAccount().getId(), Status.DISABLE);
+				String key=""+(Constants.REDISBASEKEY+"Account"+account3RD.getAccount().getAccountNo()).hashCode();
+				Jedis jedis = RedisConfig.getJedis();
+				jedis.del(key);
+				jedis.close();
+				notifyMessageUtil.sendMessage(0,account3RD.getAccount().getAccountNo(), thsAmount.toPlainString(), afa.getInterestAmount().toPlainString());
+			}else{
+				LOGGER.info("[{}]对账正常!!", thsTransactionAccountId);
+			}
+		}else{
+			LOGGER.error("对应同花顺账户[{}]本地无交易数据!!! 对账信息为: [{}]", thsTransactionAccountId, line);
+		}
+	}
+	
+	public File generateVerifyFile(){
+		LOGGER.info("正在构造资金对账文件...");
+		String now = DateUtil.currentDate(Constants._SDF_DATE);
+		String fileName = String.format(LOCAL_VERIFY_FILE_NAME, now);
+		File file = new File(Constants.VERIFY_FILE_PATH+fileName);
+		StringBuffer sb = new StringBuffer("365|"+now+"|");
+		BufferedWriter bw = null;
+		try{
+			bw = new BufferedWriter(new FileWriter(file));
+			BigDecimal totalAmount = totalAmount();
+			List<Trade> records = records();
+			int total = records.size();
+			sb.append(total+"|"+totalAmount+"|"+total+"|"+totalAmount+"|0|0");
+			bw.write(sb.toString());
+			bw.newLine();
+			for (Trade trade : records) {
+				sb = new StringBuffer(trade.getExtTradeNo()+"|");
+				sb.append(trade.getRealAmount()+"|");
+				sb.append(Constants._SDF_DATETIME.format(trade.getCreateTime())+"|");
+				sb.append(trade.getFund().getCode()+"|");
+				sb.append(trade.getTransferNo()+"|");
+				sb.append(trade.getAccount().getBankAccount()+"|");
+				Long account3RDID = trade.getThrdAccount();
+				Account3RD account3RD = account3RDService.findById(account3RDID);
+				ThsAccount thsAccount = Json.fromJson(Json.parse(account3RD.getAccountInfo()), ThsAccount.class);
+				sb.append("0|").append(account3RD.getUserId()+"|D|").append(thsAccount.getCustId()+"|结果描述");
+				bw.write(sb.toString());
+				bw.newLine();
+			}
+			bw.flush();
+		}catch(Exception e){
+			e.printStackTrace();
+			LOGGER.info("构建对账文件发生异常! {}", e.getCause());
+		}finally{
+			try {
+				bw.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		return file;
+	}
+	
+	public BaseVo capitalVerify(){
+		VerifyVo result = new VerifyVo();
+		File file = generateVerifyFile();
+		if (null == file || !file.exists()){
+			return result.createError("global.capital.verify.failed");
+		}
+		result.setFileName(file.getName());
+		StringBuffer sb = new StringBuffer();
+		BufferedReader reader = null;
+		try{
+			reader = new BufferedReader(new FileReader(file));
+			String line = null;
+			while(null != (line = reader.readLine())){
+				sb.append(line+"\n");
+			};
+			result.setFileContext(sb.toString());
+		}catch(Exception e){
+			e.printStackTrace();
+			LOGGER.error("读取资金对账文件发生异常!! {}", e.getCause());
+		}finally{
+			try {
+				reader.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		return result;
+	}
+	public BigDecimal totalAmount(){
+		LOGGER.info("正在计算当日同花顺基金申购总份额(金额)...");
+		//时间为上一个工作日15点之后-今天15点之前
+		Date start = holidayService.prevWorkDay();
+		String startTime = DateUtil.timePoint(start, Constants.DEFAULT_CUT_TIME);
+		String endTime = DateUtil.timePoint(new Date(), Constants.DEFAULT_CUT_TIME);
+		BigDecimal totalAmount = tradeService.countTotalAmountByDateForVerify(1l, startTime, endTime);
+		if (null == totalAmount) totalAmount = new BigDecimal(0);
+		LOGGER.info("计算出当日同花顺基金申购总份额(金额)为:[{}]", totalAmount);
+		return totalAmount;
+	}
+	public List<Trade> records(){
+		LOGGER.info("开始获取当日同花顺基金申购交易数据...");
+		//时间为上一个工作日15点之后-今天15点之前
+		Date start = holidayService.prevWorkDay();
+		String startTime = DateUtil.timePoint(start, Constants.DEFAULT_CUT_TIME);
+		String endTime = DateUtil.timePoint(new Date(), Constants.DEFAULT_CUT_TIME);
+		List<Trade> result = tradeService.queryByDateForVerify(1l, startTime, endTime);
+		LOGGER.info("获取到当日同花顺基金申购数据, 共[{}]条", result.size());
+		return result;
+	}
+	
+	//同步交易记录状态
+	public void trade(String date){
+		File file=download(date, "mx");
+		if(file==null){
+			is_read =false;
+			return ;
+		}
+		read(file, "mx", "交易确认结果");
+	}
+	
+	//分红数据同步
+	public void income(String date){
+		File file=download(date, "fh");
+		if(file==null||!is_read){
+			is_read = false;
+			return ;
+		}
+		read(file, "fh", "分红同步");
+	}
+	
+	//份额对账
+	public void verify(String date){
+		File file = download(date,"dz");
+		if(file==null||!is_read){
+			is_read = false;
+			return ;
+		}
+		read(file, "dz", "份额对账");
+	}
+
+	public static void main(String[] args) throws IOException {
+		/*VerifyService vs = new VerifyService();
+		vs.verify(new File("d://tmpconfig.txt"));*/
+		
+//		String str = "{\"capitaloutstate\":\"5\",\"capitalserial\":\"00000000000100065948\",\"code\":\"ETS-5BP0000\",\"confirmflag\":\"3\",\"dealresult\":\"1\",\"message\":\"退款失败\",\"taconfirmerrcode\":\"9007\",\"taconfirmerrmsg\":\"\",\"applyserial\":\"00000000000100065948\"}";
+//		System.err.println(Json.toJson(str).get("capitaloutstate").asText());
+		
+	}
+}

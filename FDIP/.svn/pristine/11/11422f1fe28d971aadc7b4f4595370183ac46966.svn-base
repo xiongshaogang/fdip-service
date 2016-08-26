@@ -1,0 +1,321 @@
+package com.trusdom.fdip.services.mcip;
+
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.trusdom.fdip.common.Config;
+import com.trusdom.fdip.common.Constants;
+import com.trusdom.fdip.common.Json;
+import com.trusdom.fdip.form.mcip.OpenThsAccountForm;
+import com.trusdom.fdip.form.mcip.PurcharseForm;
+import com.trusdom.fdip.model.Fund;
+import com.trusdom.fdip.model.Fund.ThsStatus;
+import com.trusdom.fdip.model.Income;
+import com.trusdom.fdip.model.account3RD.ThsAccount;
+import com.trusdom.fdip.vo.BaseVo;
+import com.trusdom.fdip.vo.OpenAccountResultVo;
+import com.trusdom.fdip.vo.TradingVo;
+
+@Service
+public class McipThsFundService {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(McipThsFundService.class);
+	
+	private static final String MCIP_URL = Config.getConfigByKey("mcipBaseUrl");
+	@Autowired
+	RestTemplate rest;
+	
+	/**
+	 * 同花顺基金账户开户
+	 * @param form
+	 * @return
+	 */
+	public BaseVo openAccount(OpenThsAccountForm form){
+		OpenAccountResultVo result = new OpenAccountResultVo();
+		String url = Config.getConfigByKey("mcipBaseUrl")+Config.getConfigByKey("ths.fundOpenAccount");
+		LOGGER.info("同花顺基金账户开户, 请求地址:{}; 参数: {}", url,form);
+		try{
+			JsonNode response = rest.postForObject(url, form, JsonNode.class);
+			LOGGER.info("同花顺基金账户开户, 返回结果: {}", response);
+			
+			if (!response.has("success") || !response.get("success").asBoolean()){
+				return BaseVo.error(response.get("errMsg").asText());
+			}
+			result.setAccountInfo(Json.toJson(response.get("data")).toString());
+			return result;
+		}catch(Exception e){
+			e.printStackTrace();
+			LOGGER.error("同花顺基金账户开户异常! {}", e.getCause());
+			return result.createError("account.openThsAccount.failed");
+		}
+	}
+	
+	
+	/**
+	 * 基金限额状态查询
+	 * @param fundCode
+	 * @return
+	 */
+	@SuppressWarnings("finally")
+	public Fund fundStatus(Fund fund){
+		String url = Config.getConfigByKey("mcipBaseUrl")+Config.getConfigByKey("ths.fundStatus")+"?fundCode="+fund.getCode();
+		LOGGER.info("基金限额状态,请求地址:{};", url);
+		try{
+			JsonNode body  = rest.getForObject(url, JsonNode.class);
+			LOGGER.info("基金限额状态, 返回结果: {}", body);
+			if (body.get("success").asBoolean()){
+				body = body.get("data");
+				String minbidsAmountByIndi =  (null != body.get("minbidsAmountByIndi"))?body.get("minbidsAmountByIndi").asText():"";
+				if(StringUtils.isNotBlank(minbidsAmountByIndi)){
+					fund.setFstMinPurchaseAmount(new BigDecimal(minbidsAmountByIndi));
+				}
+				String  indimaxPurchase = (null != body.get("indimaxPurchase")&&!body.get("indimaxPurchase").isNull())?body.get("indimaxPurchase").asText():"";
+				if(StringUtils.isNotBlank(indimaxPurchase)){
+					fund.setMaxPurchaseAmount(new BigDecimal(indimaxPurchase));
+				}
+				String  minredemptionVol = (null != body.get("minredemptionVol"))?body.get("minredemptionVol").asText():"";
+				if(StringUtils.isNotBlank(minredemptionVol)){
+					fund.setMinRedemption(new BigDecimal(minredemptionVol));
+				}
+				String  maxredemptionVol = (null != body.get("maxredemptionVol"))?body.get("maxredemptionVol").asText():"";
+				if(StringUtils.isNotBlank(maxredemptionVol)){
+					fund.setMaxRedemption(new BigDecimal(maxredemptionVol));
+				}
+				String  minaccountBalance = (null != body.get("minaccountBalance"))?body.get("minaccountBalance").asText():"";
+				if(StringUtils.isNotBlank(minaccountBalance)){
+					fund.setMinAccountBalance(new BigDecimal(minaccountBalance));
+				}
+				fund.setThsStatus(ThsStatus.status(body.get("fundStatus").asText()));
+			}
+			else{
+				fund=null;
+			}
+			return fund;
+		}catch(Exception e){
+			e.printStackTrace();
+			LOGGER.error("基金限额状态查询异常, {}", e.toString());
+			return null;
+		}
+		
+	}
+	
+	private String getParams(Map<String, Object> params){
+		StringBuilder sb = new StringBuilder();
+		for(Map.Entry i : params.entrySet()){
+			sb.append(i.getKey()).append("=").append(i.getValue()).append("&");
+		}
+		sb.deleteCharAt(sb.length()-1);
+		return sb.toString();
+	}
+	/**
+	 * 持仓收益查询
+	 * @param fundCode
+	 * @param custId
+	 * @param transActionAccountId
+	 * @param transactioncfmdate
+	 * @return
+	 */
+	public Income income(String fundCode, String custId, String transActionAccountId, String transactioncfmdate){
+		String url = Config.getConfigByKey("mcipBaseUrl")+Config.getConfigByKey("ths.fundIncome");
+		Map<String, Object> params = new HashMap<String, Object>();
+		params.put("fundCode", fundCode);
+		params.put("userid", custId);
+		params.put("transActionAccountId", transActionAccountId);
+		params.put("transactioncfmdate", transactioncfmdate);
+		url +="?"+getParams(params);
+		LOGGER.info("持仓收益查询, 请求地址:{}; 参数:{}", url, params);
+		Income income = null;
+		try {
+			JsonNode body = rest.getForObject(url, JsonNode.class);
+			LOGGER.info("持仓收益查询结果: {}", body);
+			if (body.get("success").asBoolean()){
+				body = body.get("data");
+				if (!body.isNull()){
+					income = new Income();
+					if (body.get("income").isNull()){
+						//income.setIncome(new BigDecimal("0"));
+						return null;
+					}else{
+						income.setIncome(new BigDecimal(body.get("income").asText()));
+					}
+					if (body.get("confirmedvol").isNull()){
+						income.setInterestAmount(new BigDecimal("0"));
+					}else{
+						income.setInterestAmount(new BigDecimal(body.get("confirmedvol").asText()));
+					}
+				}
+			}
+		}catch(Exception e){
+			e.printStackTrace();
+			LOGGER.error("持仓收益查询异常 , {}", e.toString());
+		}
+		return income;
+	}
+	
+	public Income income(String fundCode, ThsAccount thsAccount, String day){
+		return income(fundCode, thsAccount.getCustId(), thsAccount.getTransActionAccountId(), day);
+	}
+	
+	public String purcharse(PurcharseForm form){
+		String url = Config.getConfigByKey("mcipBaseUrl")+Config.getConfigByKey("ths.fundPurchase");
+		LOGGER.info("同花顺基金申购, 请求地址:{}; 参数: {}", url, form);
+		JsonNode response = rest.postForObject(url, form, JsonNode.class);
+		LOGGER.info("同花顺基金申购, 返回结果: {}", response);
+		if (response.get("success").asBoolean()){
+			JsonNode data = response.get("data");
+			return data.get("appsheetSerialNo").asText();
+		}else{
+			return null;
+		}
+	}
+	
+	
+	public JsonNode purchaseDetail(String userId, String tradeNo){
+		String url = MCIP_URL + Config.getDynamicConfigByKey("ths.purchaseDetail", userId) + "?txTraceNo="+tradeNo;
+		LOGGER.info("同花顺基金申购详情查询, 请求地址:{};", url);
+		JsonNode response = rest.getForObject(url, JsonNode.class);
+		LOGGER.info("同花顺基金申购详情查询, 返回结果: {}", response);
+		if (response.get("success").asBoolean()){
+			JsonNode data = response.get("data");
+			return data.get("singleData").isNull()?null:data.get("singleData");
+		}else{
+			return null;
+		}
+	}
+	
+	public JsonNode redemptionDetail(String userId, String tradeNo){
+		String url = MCIP_URL + Config.getConfigByKey("ths.redemptionDetail") + "?userId="+userId+"&txTraceNo="+tradeNo;
+		LOGGER.info("同花顺基金T+0快速赎回详情查询, 请求地址:{};", url);
+		try{
+			JsonNode response = rest.getForObject(url, JsonNode.class);
+			LOGGER.info("同花顺基金T+0快速赎回详情查询, 返回结果: {}", response);
+			if (response.has("success") && response.get("success").asBoolean()){
+				JsonNode data = response.get("data");
+				return data.get("singleData").isNull()?null:data.get("singleData");
+			}else{
+				return null;
+			}
+		}catch(Exception e){
+			e.printStackTrace();
+			LOGGER.error("同花顺基金T+0快速赎回详情查询异常!! {}", e);
+			return null;
+		}
+	}
+	
+	public List<TradingVo> processing(String transActionAccountId, String custId){
+		List<TradingVo> result = new ArrayList<TradingVo>();
+		String url = Config.getConfigByKey("mcipBaseUrl")+Config.getConfigByKey("ths.fund.processing");
+		Map<String, Object> params = new HashMap<String, Object>();
+		params.put("transActionAccountId", transActionAccountId);
+		params.put("custId", custId);
+		url +="?"+getParams(params);
+		LOGGER.info("同花顺进行中交易, 请求地址:{};", url);
+		try{
+			JsonNode response = rest.getForObject(url, JsonNode.class);
+			LOGGER.info("同花顺进行中交易: {}", response);
+			if (response.has("success") && response.get("success").asBoolean()){
+				response = response.get("data");
+				if (!response.isNull() && response.has("sum") && response.get("sum").asInt() > 0){
+					Iterator<JsonNode> list = response.get("tradelist").elements();
+					while (list.hasNext()) {
+						JsonNode jn = list.next();
+						TradingVo vo = Json.fromJson(jn, TradingVo.class);
+						result.add(vo);
+					}
+				}
+			}
+		}catch(Exception e){
+			e.printStackTrace();
+			LOGGER.error("同花顺进行中交易查询异常 , {}", e.toString());
+		}
+		return result;
+	}
+	
+	public void downloadVerifyFile(String url){
+		LOGGER.info("同花顺对账文件下载, 请求地址:{};", url);
+		ResponseEntity<byte[]> response = rest.getForEntity(url, byte[].class);
+		byte[] fileBytes = response.getBody();
+		HttpHeaders headers = response.getHeaders();
+		for (Entry<String, List<String>> header : headers.entrySet()) {
+			System.err.println(header.getKey()+"=="+header.getValue());
+		}
+		System.err.println(fileBytes.length);
+		File file = new File("d://12345.jpg");
+		FileOutputStream fout = null;
+		try{
+			fout = new FileOutputStream(file);
+			for (byte b : fileBytes) {
+				fout.write(b);
+			}
+			fout.flush();
+		}catch(IOException e){
+			e.printStackTrace();
+		}finally{
+			try {
+				fout.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	public File downLoadVerifyFile(String date, String type){
+		String typeName = (type.equals("mx"))?"交易确认结果文件":"对账文件";
+		String url = Config.getConfigByKey("mcipBaseUrl")+Config.getConfigByKey("ths.verify")+"?tradeDate="+date+"&type="+type;
+		LOGGER.info("同花顺{}下载, 请求地址:{};", typeName, url);
+		BufferedWriter bw = null;
+		File file = null;
+		try{
+			JsonNode response = rest.getForObject(url, JsonNode.class);
+			LOGGER.info("同花顺{}返回结果: [{}]", typeName,response);
+			if (response.has("success") && response.get("success").asBoolean()){
+				if (response.has("data") && !response.get("data").isNull()){
+					response = response.get("data");
+					String fileName = response.get("fileName").asText();
+					file = new File(Constants.VERIFY_FILE_PATH+fileName);
+					String verifyContent = response.get("fileContext").asText();
+					bw = new BufferedWriter(new FileWriter(file));
+					String[] contents = verifyContent.split("\n");
+					for (String content : contents) {
+						bw.write(content);
+						bw.newLine();
+					}
+					bw.flush();
+				}
+			}
+			return file;
+		}catch(Exception e){
+			e.printStackTrace();
+			LOGGER.error("下载同花顺{}失败!! {}", typeName, e.getCause());
+			return file;
+		}finally{
+			if (null != bw){
+				try {
+					bw.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+}

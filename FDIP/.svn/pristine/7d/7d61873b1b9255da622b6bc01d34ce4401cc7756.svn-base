@@ -1,0 +1,50 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.vo;
+
+import java.io.Serializable;
+
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年5月17日 下午12:02:55
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+
+public class UserInfo implements Serializable {
+
+	private static final long serialVersionUID = -3800729275054375614L;
+
+	private String tradePassword;
+
+	private String transActionAccountId;
+
+	private String userId;
+
+	public String getTradePassword() {
+		return tradePassword;
+	}
+
+	public void setTradePassword(String tradePassword) {
+		this.tradePassword = tradePassword;
+	}
+
+	public String getTransActionAccountId() {
+		return transActionAccountId;
+	}
+
+	public void setTransActionAccountId(String transActionAccountId) {
+		this.transActionAccountId = transActionAccountId;
+	}
+
+	public String getUserId() {
+		return userId;
+	}
+
+	public void setUserid(String userId) {
+		this.userId = userId;
+	}
+
+}

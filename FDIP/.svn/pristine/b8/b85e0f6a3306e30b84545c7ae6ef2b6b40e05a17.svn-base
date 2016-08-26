@@ -1,0 +1,179 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.services;
+
+import java.nio.Buffer;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+
+import org.apache.commons.httpclient.HttpsURL;
+import org.jboss.logging.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
+
+import com.trusdom.fdip.common.HttpUtil;
+import com.trusdom.fdip.common.Json;
+import com.trusdom.fdip.form.BuyForm;
+import com.trusdom.fdip.mappers.AccountFundAmountMapper;
+import com.trusdom.fdip.mappers.TradeMapper;
+import com.trusdom.fdip.model.Account;
+import com.trusdom.fdip.model.Account3RD;
+import com.trusdom.fdip.model.AccountFundAmount;
+import com.trusdom.fdip.model.BuyFound;
+import com.trusdom.fdip.model.CapitalAllocation;
+import com.trusdom.fdip.model.Channel;
+import com.trusdom.fdip.model.Trade;
+import com.trusdom.fdip.spring.configs.RedisConfig;
+import com.trusdom.fdip.vo.BuyFundVo;
+import com.trusdom.fdip.vo.BuyResultVo;
+import com.trusdom.fdip.vo.ThsAccountInfo;
+import com.trusdom.fdip.vo.UserInfo;
+
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年5月16日 上午11:04:27
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+
+@Service 
+public class BuyFundService {
+	
+	private static Logger log=Logger.getLogger(BuyFundService.class);
+	
+	
+	@Autowired
+	TradeMapper tradeMapper;
+	
+	@Autowired
+	AccountFundAmountMapper accountFundAmountMapper;
+	
+	@Autowired
+	FundService fundService;
+	
+	@Autowired
+	Account3RDService account3RDService;
+	
+	
+	@Autowired
+	HolidayService holidayService;
+	
+	@Autowired
+	AccountService accountService;
+	
+	
+	private Date getDate(Date date,String HHmmss) throws ParseException{
+		return new SimpleDateFormat("yyyyMMddHHmmss").parse(new SimpleDateFormat("yyyyMMdd").format(new Date()+HHmmss));
+	}
+	
+	/**
+	 *  存在账户信息则直接在redis中取值
+	 *  不存在则通过基金编码获取渠道id,然后获取第三方账户信息,将第三方信息放在redis当中
+	 * @param accountNo
+	 * @param fundCode
+	 * @return
+	 */
+	
+	private UserInfo findUserInfo(String accountNo,Long channelId){
+		UserInfo userInfo=RedisConfig.getObject(accountNo+channelId);
+		if(userInfo==null){
+			//查詢第三方賬戶
+			log.info("redis緩存未命中,取mysql");
+			Account3RD account3rd=account3RDService.queryByChannlAndAccount(channelId, accountNo);
+			ThsAccountInfo thsAccountInfo=Json.fromJson(Json.parse(account3rd.getAccountInfo()), ThsAccountInfo.class);
+			userInfo=new UserInfo();
+			userInfo.setAccount3RD(account3rd.getId());
+			userInfo.setTradePassword(accountService.queryAccountByAccountNo(accountNo).getTradePwd());
+			userInfo.setTransActionAccountId(thsAccountInfo.getTransActionAccountId());
+			userInfo.setUserId(thsAccountInfo.getCustId());
+			RedisConfig.set(accountNo+channelId, userInfo);
+		}
+		return userInfo;
+	}
+
+	/**
+	 * 购买基金业务流程
+	 * 1.个人余额账户转入个人冻结账户
+	 * 2.向同花顺发起申购请求,成功记录资金划拨
+	 * 3.记录申购记录trade(需调用节假日获取资金划拨时间),修改基金账户余额信息
+	 * 4.若第一部失败则直接停止请求
+	 * 5.若第2步失败则将个人冻结转入个人余额账户
+	 * @param fundCode
+	 * @param transActionAccountId
+	 * @param mount
+	 * @param txTraceNo
+	 * @throws Exception 
+	 */
+	
+	@Transactional
+	public BuyResultVo buyThs(BuyForm buyForm) throws Exception{
+		BuyResultVo buyResultVo=new BuyResultVo();
+		//通过fundcode获取渠道id
+		Channel channel=fundService.queryChannelByFundCode(buyForm.getFundCode());
+		//发送到cbip申请冻结账户
+		String params="";
+		String cbipResult=HttpUtil.sendRequest("", true, "POST", params, true);
+//		解析划拨结果成功
+		if(cbipResult.equalsIgnoreCase("")){
+			UserInfo userInfo=findUserInfo(buyForm.getFundCode(), channel.getId());
+			BuyFundVo buyFundVo=new BuyFundVo(buyForm.getFundCode(),userInfo.getTradePassword(),
+					userInfo.getTransActionAccountId(),buyForm.getAmount(),buyForm.getTradeNo());
+			params="rsGzBuyDTO="+Json.toJson(buyFundVo).toString()+"userid="+userInfo.getUserId();
+			//发送同花顺获取结果
+			String result=HttpUtil.sendRequest("", true, "POST", params, true);
+			//成功则将资金存入同花顺基金账户调取接口
+			if(result.equalsIgnoreCase("")){
+				Trade trade=new Trade();
+				trade.setPayDay(holidayService.getPayDay());
+				trade.setAmount(buyForm.getAmount());
+				trade.setCreateTime(new Date());
+				if(new Date().getHours()<15&&holidayService.isWorkday(new Date()))
+					trade.setEditableDeadline(getDate(new Date(),"150000"));
+				else
+					trade.setEditableDeadline(getDate(holidayService.nextWorkDay(Calendar.getInstance()),"150000"));
+				trade.setExtTradeNo("");
+				trade.setFund(fundService.queryByCode(buyForm.getFundCode()).getId());
+				trade.setInterestTime(getDate(holidayService.nextWorkDay(Calendar.getInstance()),"170000"));
+				trade.setTradeType("申购");
+				trade.setSgAmount(buyForm.getAmount());
+				trade.setStatus("成功");
+				trade.setThrdAccount(userInfo.getAccount3RD());
+				trade.setTradeNo(buyForm.getTradeNo());
+				trade.setUpdateTime(new Date());
+				tradeMapper.add(trade);
+				//修改个人基金账户余额信息
+				AccountFundAmount accountFundAmount= accountFundAmountMapper.findByAccountAndChannel(accountService.queryAccountByAccountNo(buyForm.getAccountNo()).getId(), channel.getId());
+				accountFundAmount.setAmount(accountFundAmount.getAmount().add(buyForm.getAmount()));
+				accountFundAmountMapper.update(accountFundAmount);
+				//调用发起资金划拨从个人冻结账户到同花顺基金账户
+				params="";
+				cbipResult=HttpUtil.sendRequest("", true, "POST", params, true);
+				//记录资金划拨
+//				CapitalAllocation capitalAllocation=new CapitalAllocation(applyNo, txTradeNo, amount, status, occurTime);
+				buyResultVo.setErrCode("0");
+				buyResultVo.setErrMsg("");
+				buyResultVo.setTotalAmount(accountFundAmount.getAmount());
+				buyResultVo.setTradeNo(buyForm.getTradeNo());
+				buyResultVo.setApplyNo("");
+			}
+			//调用cbip个人冻结账户到个人余额账户花钱
+			buyResultVo.setErrCode("0001");
+			buyResultVo.setErrMsg("ths faild");
+		}
+		else {
+			//提示用户购买失败
+			buyResultVo.setErrCode("0001");
+			buyResultVo.setErrMsg("cbip error");
+		}
+		return buyResultVo;
+	}
+
+	
+}

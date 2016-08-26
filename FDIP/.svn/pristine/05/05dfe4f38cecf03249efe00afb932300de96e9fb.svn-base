@@ -1,0 +1,210 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.model;
+
+import java.math.BigDecimal;
+import java.util.Date;
+
+import com.trusdom.fdip.common.Json;
+
+/**
+ * @author zhihuayang E-mail:425273175@qq.com
+ * @date 创建时间：2016年5月6日 下午5:01:13
+ * @version 1.0
+ * @parameter
+ * @return
+ */
+
+public class Fund {
+	
+	public enum ThsStatus {
+		TRADE("0", "交易", true, true), PUBLISH("1", "发行", false, false), PUBLISH_SUCC("2", "发行成功", false, false), PUBLISH_FAIL("3", "发行失败", false, false),
+		PAUSE_TRADE("4", "基金暂停交易", false, false), PAUSE_PURCHASE("5", "停止申购", false, true), PAUSE_REDEMPTION("6", "停止赎回", true, false),
+		REGISTER("7", "权益登记", false, false), DIVIDEND_PAYOFF("8", "红利发放", false, false), FUND_CLOSE("9", "基金封闭", false, false), FUND_TERMINATE("a", "基金终止", false, false);
+		
+		private ThsStatus(String status, String description,
+				Boolean purchaseAble, Boolean redemptionAble) {
+			this.status = status;
+			this.description = description;
+			this.purchaseAble = purchaseAble;
+			this.redemptionAble = redemptionAble;
+		}
+		private String status;
+		
+		private String description;
+		
+		private Boolean purchaseAble;
+		
+		private Boolean redemptionAble;
+
+		public String getStatus() {
+			return status;
+		}
+
+		public void setStatus(String status) {
+			this.status = status;
+		}
+
+		public String getDescription() {
+			return description;
+		}
+
+		public void setDescription(String description) {
+			this.description = description;
+		}
+
+		public Boolean getPurchaseAble() {
+			return purchaseAble;
+		}
+
+		public void setPurchaseAble(Boolean purchaseAble) {
+			this.purchaseAble = purchaseAble;
+		}
+
+		public Boolean getRedemptionAble() {
+			return redemptionAble;
+		}
+
+		public void setRedemptionAble(Boolean redemptionAble) {
+			this.redemptionAble = redemptionAble;
+		}
+
+		public static ThsStatus status(String status){
+			for (ThsStatus thsStatus : ThsStatus.values()) {
+				if (thsStatus.getStatus().equals(status)) return thsStatus;
+			}
+			return null;
+		}
+	}
+
+	private long id;
+	
+	private Channel channel;
+
+	private String name;
+
+	private String code;
+	
+	private ThsStatus thsStatus;
+	
+	//个人首次申购最小份额
+	private BigDecimal fstMinPurchaseAmount;
+	
+	//最大申购份额
+	private BigDecimal maxPurchaseAmount;
+	
+	//最小赎回份额
+	private BigDecimal minRedemption;
+	
+	//最大赎回份额
+	private BigDecimal maxRedemption;
+	
+	//最小持有份额
+	private BigDecimal minAccountBalance;
+	
+	private Date createTime;
+	
+	private Date updateTime;
+	
+	public long getId() {
+		return id;
+	}
+
+	public void setId(long id) {
+		this.id = id;
+	}
+	
+	public Channel getChannel() {
+		return channel;
+	}
+
+	public void setChannel(Channel channel) {
+		this.channel = channel;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public String getCode() {
+		return code;
+	}
+
+	public void setCode(String code) {
+		this.code = code;
+	}
+
+	public ThsStatus getThsStatus() {
+		return thsStatus;
+	}
+
+	public void setThsStatus(ThsStatus thsStatus) {
+		this.thsStatus = thsStatus;
+	}
+
+	public BigDecimal getFstMinPurchaseAmount() {
+		return fstMinPurchaseAmount;
+	}
+
+	public void setFstMinPurchaseAmount(BigDecimal fstMinPurchaseAmount) {
+		this.fstMinPurchaseAmount = fstMinPurchaseAmount;
+	}
+
+	public BigDecimal getMaxPurchaseAmount() {
+		return maxPurchaseAmount;
+	}
+
+	public void setMaxPurchaseAmount(BigDecimal maxPurchaseAmount) {
+		this.maxPurchaseAmount = maxPurchaseAmount;
+	}
+
+	public BigDecimal getMinRedemption() {
+		return minRedemption;
+	}
+
+	public void setMinRedemption(BigDecimal minRedemption) {
+		this.minRedemption = minRedemption;
+	}
+
+	public BigDecimal getMaxRedemption() {
+		return maxRedemption;
+	}
+
+	public void setMaxRedemption(BigDecimal maxRedemption) {
+		this.maxRedemption = maxRedemption;
+	}
+
+	public BigDecimal getMinAccountBalance() {
+		return minAccountBalance;
+	}
+
+	public void setMinAccountBalance(BigDecimal minAccountBalance) {
+		this.minAccountBalance = minAccountBalance;
+	}
+
+	public Date getCreateTime() {
+		return createTime;
+	}
+
+	public void setCreateTime(Date createTime) {
+		this.createTime = createTime;
+	}
+
+	public Date getUpdateTime() {
+		return updateTime;
+	}
+
+	public void setUpdateTime(Date updateTime) {
+		this.updateTime = updateTime;
+	}
+
+	@Override
+	public String toString() {
+		return Json.toJson(this).toString();
+	}
+}

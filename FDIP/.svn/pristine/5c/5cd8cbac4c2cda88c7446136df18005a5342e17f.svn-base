@@ -1,0 +1,34 @@
+package com.trusdom.fdip.services;
+
+import java.math.BigDecimal;
+
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年6月16日 下午6:47:58
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+/**
+ * @author lenovo
+ *
+ */
+public class IncomeRateVo {
+
+	private String date;
+	private BigDecimal incomeRate;
+	
+	public String getDate() {
+		return date;
+	}
+	public void setDate(String date) {
+		this.date = date;
+	}
+	public BigDecimal getIncomeRate() {
+		return incomeRate;
+	}
+	public void setIncomeRate(BigDecimal incomeRate) {
+		this.incomeRate = incomeRate;
+	}
+	
+}

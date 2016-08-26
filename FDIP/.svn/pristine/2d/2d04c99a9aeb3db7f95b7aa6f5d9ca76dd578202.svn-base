@@ -1,0 +1,164 @@
+//package com.trusdom.fdip.services.ths;
+//
+//import java.util.Date;
+//
+//import org.apache.commons.lang3.StringUtils;
+//import org.slf4j.Logger;
+//import org.slf4j.LoggerFactory;
+//import org.springframework.beans.factory.annotation.Autowired;
+//import org.springframework.stereotype.Service;
+//import org.springframework.transaction.annotation.Transactional;
+//
+//import com.trusdom.fdip.common.Json;
+//import com.trusdom.fdip.form.BuyOrRedeForm;
+//import com.trusdom.fdip.form.mcip.PurcharseForm;
+//import com.trusdom.fdip.model.Account;
+//import com.trusdom.fdip.model.Account3RD;
+//import com.trusdom.fdip.model.AccountFundAmount;
+//import com.trusdom.fdip.model.Channel;
+//import com.trusdom.fdip.model.Fund;
+//import com.trusdom.fdip.model.Trade;
+//import com.trusdom.fdip.model.Trade.Status;
+//import com.trusdom.fdip.model.Trade.TradeType;
+//import com.trusdom.fdip.model.account3RD.ThsAccount;
+//import com.trusdom.fdip.services.Account3RDService;
+//import com.trusdom.fdip.services.AccountFundAmountService;
+//import com.trusdom.fdip.services.AccountService;
+//import com.trusdom.fdip.services.FundTradeService;
+//import com.trusdom.fdip.services.HolidayService;
+//import com.trusdom.fdip.services.TradeService;
+//import com.trusdom.fdip.services.cbip.AccountTransferService;
+//import com.trusdom.fdip.services.mcip.McipThsFundService;
+//import com.trusdom.fdip.vo.BaseVo;
+//import com.trusdom.fdip.vo.PurcharseResultVo;
+//
+//@Service("thsFundTradeService")
+//public class ThsFundTradeService extends FundTradeService {
+//	private static final Logger LOGGER = LoggerFactory.getLogger(ThsFundTradeService.class);
+//	@Autowired
+//	AccountTransferService accountTransferService;
+//	
+//	@Autowired
+//	McipThsFundService mcipThsFundService;
+//	
+//	@Autowired
+//	Account3RDService account3RDService;
+//	
+//	@Autowired
+//	AccountService accountService;
+//	
+//	@Autowired
+//	HolidayService holidayService;
+//	
+//	@Autowired
+//	TradeService tradeService;
+//	
+//	@Autowired
+//	AccountFundAmountService accountFundAmountService;
+//	/**
+//	 * 获取同花顺账户信息
+//	 * @param accountNo
+//	 * @param channel
+//	 * @return
+//	 */
+//	private ThsAccount getThsAccount(String accountNo, String channel){
+//		Account3RD account = account3RDService.queryByChannlAndAccount(getChannel(channel), getAccount(accountNo));
+//		ThsAccount thsAccount = Json.fromJson(Json.parse(account.getAccountInfo()), ThsAccount.class);
+//		return thsAccount;
+//	}
+//	/**
+//	 * 同花顺基金申购
+//	 */
+//	@Override
+//	@Transactional
+//	public BaseVo purcharse(BuyOrRedeForm form) {
+//		BaseVo result;
+//		if (!(result = validate(form)).isSuccess()){
+//			return result;
+//		}
+//		Account account = getAccount(form.getAccountNo());
+//		ThsAccount thsAccount = getThsAccount(form.getAccountNo(), form.getChannel());
+//		Status status = Status.SUCCESS;
+//		//资金冻结
+//		try{
+//			Boolean frozen = frozen(form.getAccountNo(), form.getAmount());
+//			if (!frozen){
+//				return result.createError("capital.frozen.failed");
+//			}
+//		}catch(Exception e){
+//			e.printStackTrace();
+//			LOGGER.error("资金冻结异常, {}", e.getCause());
+//			return result.createError("capital.transfer.failed");
+//		}
+//		//同花顺申购
+//		String thsTradeNo = "";
+//		try{
+//			PurcharseForm purcharseForm = new PurcharseForm();
+//			purcharseForm.setFundCode(form.getFundCode());
+//			purcharseForm.setTradePassword(account.getTradePwd());
+//			purcharseForm.setMoney(form.getAmount().toString());
+//			purcharseForm.setTransActionAccountId(thsAccount.getTransActionAccountId());
+//			purcharseForm.setUserid(thsAccount.getCustId());
+//			purcharseForm.setTxTraceNo(form.getTradeNo());
+//			thsTradeNo = mcipThsFundService.purcharse(purcharseForm);
+//			if (StringUtils.isBlank(thsTradeNo)){
+//				LOGGER.info("同花顺基金申购失败!");
+//				try {
+//					unFrozen(form.getAccountNo(), form.getAmount());
+//				}catch(Exception e){
+//					e.printStackTrace();
+//					LOGGER.error("资金解冻异常, {}", e.getCause());
+//				}
+//				return result.createError("fund.purcharse.failed");
+//			}
+//		}catch(Exception e){
+//			e.printStackTrace();
+//			LOGGER.error("同花顺基金申购异常, {}", e.getCause());
+//			return result.createError("fund.purcharse.failed");
+//		}
+//		try{
+//			Boolean transfer = transfer(form.getChannel(), form.getAccountNo(), form.getAmount(), "TRANSFER");
+//			if (!transfer){
+//				LOGGER.error("资金划拨失败");
+//				//FIXME: 资金划拨失败, 如何处理
+//			}
+//		}catch(Exception e){
+//			e.printStackTrace();
+//			LOGGER.error("资金划拨异常, {}", e.getCause());
+//		}
+//		Channel channel = getChannel(form.getChannel());
+//		Fund fund = getFund(form.getFundCode());
+//		Trade trade = new Trade();
+//		trade.setAccount(account);
+//		trade.setThrdAccount(getAccount3RD(form.getChannel(), form.getAccountNo()).getId());
+//		trade.setAmount(form.getAmount());
+//		trade.setChannel(channel);
+//		trade.setFund(fund);
+//		trade.setTradeNo(form.getTradeNo());
+//		trade.setExtTradeNo(thsTradeNo);
+//		trade.setSgAmount(form.getAmount());
+//		trade.setPayday(holidayService.getPayDay());
+//		trade.setEditableDeadline(editableDeadline());
+//		trade.setStatus(Status.SUCCESS);
+//		trade.setTradeType(TradeType.PURCHASE);
+//		trade.setCreateTime(new Date());
+//		tradeService.save(trade);
+//		AccountFundAmount accountFundAmount = accountFundAmountService.modifyAccountFundAmount(account.getId(),form.getAmount(), channel.getId(), fund.getId());
+//		PurcharseResultVo vo = new PurcharseResultVo();
+//		vo.setTradeNo(form.getTradeNo());
+//		vo.setApplyNo(thsTradeNo);
+//		vo.setTotalAmount(accountFundAmount.getAmount());
+//		return null;
+//	}
+//
+//	@Override
+//	public BaseVo redemption(BuyOrRedeForm form) {
+//		BaseVo result;
+//		if (!(result = validate(form)).isSuccess()){
+//			return result;
+//		}
+//		return null;
+//	}
+//
+//	
+//}

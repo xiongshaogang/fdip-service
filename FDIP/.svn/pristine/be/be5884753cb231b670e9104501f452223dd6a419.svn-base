@@ -1,0 +1,176 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.services;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+import org.jboss.logging.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.trusdom.fdip.common.HttpUtil;
+import com.trusdom.fdip.common.Json;
+import com.trusdom.fdip.form.BuyForm;
+import com.trusdom.fdip.mappers.AccountFundAmountMapper;
+import com.trusdom.fdip.mappers.SgeditMapper;
+import com.trusdom.fdip.mappers.TradeMapper;
+import com.trusdom.fdip.model.Account3RD;
+import com.trusdom.fdip.model.AccountFundAmount;
+import com.trusdom.fdip.model.Channel;
+import com.trusdom.fdip.model.Fund;
+import com.trusdom.fdip.model.Sgedit;
+import com.trusdom.fdip.model.Trade;
+import com.trusdom.fdip.spring.configs.RedisConfig;
+import com.trusdom.fdip.vo.RedeResultVo;
+import com.trusdom.fdip.vo.ThsAccountInfo;
+import com.trusdom.fdip.vo.UserInfo;
+
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年5月18日 下午4:27:59
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+@Service
+public class RedeFundService {
+	
+	private static Logger log=Logger.getLogger(RedeFundService.class);
+	
+	@Autowired
+	TradeMapper tradeMapper;
+	
+	@Autowired
+	SgeditMapper sgeditMapper;
+	@Autowired
+	AccountFundAmountMapper accountFundAmountMapper;
+	
+	@Autowired
+	FundService fundService;
+	
+	@Autowired
+	Account3RDService account3RDService;
+	
+	@Autowired
+	AccountService accountService;
+	
+	
+	private UserInfo findUserInfo(String accountNo,Long channelId){
+		UserInfo userInfo=RedisConfig.getObject(accountNo+channelId);
+		if(userInfo==null){
+			//查詢第三方賬戶
+			log.info("redis緩存未命中,取mysql");
+			Account3RD account3rd=account3RDService.queryByChannlAndAccount(channelId, accountNo);
+			ThsAccountInfo thsAccountInfo=Json.fromJson(Json.parse(account3rd.getAccountInfo()), ThsAccountInfo.class);
+			userInfo=new UserInfo();
+			userInfo.setAccount3RD(account3rd.getId());
+			userInfo.setTradePassword(accountService.queryAccountByAccountNo(accountNo).getTradePwd());
+			userInfo.setTransActionAccountId(thsAccountInfo.getTransActionAccountId());
+			userInfo.setUserId(thsAccountInfo.getCustId());
+			RedisConfig.set(accountNo+channelId, userInfo);
+		}
+		return userInfo;
+	}
+	/**
+	 * 赎回
+	 * 1.查询基金账户余额是否大于赎回金额,不足则取消本次赎回
+	 * 2.判断今日是否为工作日
+	 * 3.为工作日判断是否在3点之前
+	 * 4.在3点之前需要判断可修改的份额是否大于赎回的份额
+	 * 5.直接调用修改份额接口
+	 * 6.回到4修改份额不足,判断计息份额+可修改份额是否足够
+	 * 7.足够则调用修改份额接口+快速赎回接口
+	 * 8.不够直接等到T+2日的下午5点之后调用快速赎回接口
+	 * 9.回到3判断T+1日修改份额是否大于赎回份额
+	 * 10.大于直接调用修改份额接口
+	 * 11.回到9判断是否计息金额+T+1修改份额大于赎回份额
+	 * 12.大于则调用修改份额+快速赎回份额
+	 * 13.回到11不够则在
+	 * @param buyform
+	 */
+	/**
+	 * 赎回规则为可修改份额足够,赎回可修改份额,快速赎回和可修改份额和利息之和是否大于修改份额,足够则两条路并行操作,不够则提示用户可修改份额
+	 * @param buyform
+	 * @throws Exception 
+	 */
+	
+	@Transactional
+	public RedeResultVo RedeThs(BuyForm buyForm) throws Exception{
+		//获取可赎回金额
+		RedeResultVo redeFundVo=new RedeResultVo();
+		Channel channel=fundService.queryChannelByFundCode(buyForm.getFundCode());
+		AccountFundAmount accountFundAmount=accountFundAmountMapper.findByAccountAndChannel(accountService.queryAccountByAccountNo(buyForm.getAccountNo()).getId(), channel.getId());
+		if(accountFundAmount.getAmount().doubleValue()>=buyForm.getAmount().doubleValue()){
+			Fund fund=fundService.queryByCode(buyForm.getFundCode());
+			UserInfo userInfo=findUserInfo(buyForm.getAccountNo(), channel.getId());
+			List<Trade> trades=tradeMapper.findTotalmodify(userInfo.getAccount3RD(), fund.getId(), new Date());
+			BigDecimal canuse=new BigDecimal("0.00");
+			for(Trade trade:trades){
+				canuse.add(trade.getSgAmount());
+			}
+			if(canuse.doubleValue()>=buyForm.getAmount().doubleValue()){
+				BigDecimal mount=buyForm.getAmount();
+				//直接修改
+				for(Trade trade:trades){
+					if(trade.getSgAmount().doubleValue()>=mount.doubleValue()){
+						trade.setSgAmount(trade.getSgAmount().subtract(mount));
+						trade.setUpdateTime(new Date());
+						tradeMapper.update(trade);
+						//調用同花順修改
+						HttpUtil.sendRequest("", true, "POST", "", true);
+						Sgedit sgedit=new Sgedit();
+						sgedit.setAmount(mount);
+						sgedit.setCreateTime(new Date());
+						sgedit.setTrade(trade.getId());
+						sgeditMapper.add(sgedit);
+						Trade redeTrade=new Trade();
+						redeTrade.setThrdAccount(trade.getThrdAccount());
+						redeTrade.setAmount(buyForm.getAmount());
+						redeTrade.setCreateTime(new Date());
+						redeTrade.setExtTradeNo("");
+						redeTrade.setFund(trade.getFund());
+						redeTrade.setTradeNo(buyForm.getTradeNo());
+						redeTrade.setStatus("成功");
+						redeTrade.setTradeType("赎回");
+						redeTrade.setUpdateTime(new Date());
+						redeTrade.setRedeemableTime(new Date());
+						tradeMapper.add(redeTrade);
+						//cbip資金從同花順到各人余额賬戶
+						break;
+					}
+					else{
+						mount=mount.subtract(trade.getSgAmount());
+						Sgedit sgedit=new Sgedit();
+						sgedit.setAmount(trade.getSgAmount());
+						sgedit.setCreateTime(new Date());
+						sgedit.setTrade(trade.getId());
+						sgeditMapper.add(sgedit);
+						trade.setSgAmount(new BigDecimal("0.00"));
+						trade.setUpdateTime(new Date());
+						tradeMapper.update(trade);
+						//調用同花順修改
+						HttpUtil.sendRequest("", true, "POST", "", true);
+					}
+				}
+			}
+//			else if(1==1){
+//			
+//		}
+			//查看两者之和是否足够,不够抛出异常提示赎回失败
+			else{
+				
+			}
+		}
+		else{
+			redeFundVo.setErrCode("0001");
+			redeFundVo.setErrMsg("赎回金额非法");
+		}
+		
+		return redeFundVo;
+	}
+
+}

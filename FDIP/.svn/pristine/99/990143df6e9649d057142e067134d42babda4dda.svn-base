@@ -1,0 +1,131 @@
+package com.trusdom.fdip.services.mcip;
+
+import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.trusdom.fdip.common.BeanUtils;
+import com.trusdom.fdip.common.Config;
+import com.trusdom.fdip.common.Json;
+import com.trusdom.fdip.form.mcip.OpenThsAccountForm;
+import com.trusdom.fdip.model.Fund;
+import com.trusdom.fdip.model.Fund.ThsStatus;
+import com.trusdom.fdip.model.Income;
+import com.trusdom.fdip.model.account3RD.ThsAccount;
+
+@Service
+public class McipThsFundService {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(McipThsFundService.class);
+	@Autowired
+	RestTemplate rest;
+	
+	/**
+	 * 同花顺基金账户开户
+	 * @param form
+	 * @return
+	 */
+	public ThsAccount openAccount(OpenThsAccountForm form){
+		LOGGER.info("基金账户开户, 参数: {}", form);
+		ThsAccount thsAccount = null;
+		ResponseEntity<JsonNode> response = rest.postForEntity(Config.getConfigByKey("mcipBaseUrl")+Config.getConfigByKey("ths.fundOpenAccount"), form, JsonNode.class);
+		if (response.getStatusCode().equals(HttpStatus.OK)){
+			JsonNode body = response.getBody();
+			LOGGER.info("基金账户开户, 返回结果: {}", body);
+			if (body.get("success").asBoolean()){
+				thsAccount=Json.fromJson(body.get("data"), ThsAccount.class);
+			}else{
+				LOGGER.error("基金账户开户失败, 返回信息: {}", body);
+			}
+		}else{
+			LOGGER.error("基金账户开户失败, 返回状态: {}", response.getStatusCode());
+		}
+		return thsAccount;
+	}
+	
+	
+	/**
+	 * 基金限额状态查询
+	 * @param fundCode
+	 * @return
+	 */
+	public Fund fundStatus(Fund fund){
+		LOGGER.info("基金限额状态, 基金: {}", fund);
+		try{
+			JsonNode body  = rest.getForObject(Config.getConfigByKey("mcipBaseUrl")+Config.getConfigByKey("ths.fundStatus")+"?fundCode="+fund.getCode(), JsonNode.class);
+			LOGGER.info("基金限额状态, 返回结果: {}", body);
+			if (body.get("success").asBoolean()){
+				String minbidsAmountByIndi =  (null != body.get("minbidsAmountByIndi"))?body.get("minbidsAmountByIndi").asText():"";
+				if(StringUtils.isNotBlank(minbidsAmountByIndi)){
+					fund.setFstMinPurchaseAmount(new BigDecimal(minbidsAmountByIndi));
+				}
+				String  indimaxPurchase = (null != body.get("indimaxPurchase"))?body.get("indimaxPurchase").asText():"";
+				if(StringUtils.isNotBlank(indimaxPurchase)){
+					fund.setMaxPurchaseAmount(new BigDecimal(indimaxPurchase));
+				}
+				String  minredemptionVol = (null != body.get("minredemptionVol"))?body.get("minredemptionVol").asText():"";
+				if(StringUtils.isNotBlank(minredemptionVol)){
+					fund.setMinRedemption(new BigDecimal(minredemptionVol));
+				}
+				String  maxredemptionVol = (null != body.get("maxredemptionVol"))?body.get("maxredemptionVol").asText():"";
+				if(StringUtils.isNotBlank(maxredemptionVol)){
+					fund.setMaxRedemption(new BigDecimal(maxredemptionVol));
+				}
+				String  minaccountBalance = (null != body.get("minaccountBalance"))?body.get("minaccountBalance").asText():"";
+				if(StringUtils.isNotBlank(minaccountBalance)){
+					fund.setMinAccountBalance(new BigDecimal(minaccountBalance));
+				}
+				fund.setThsStatus(ThsStatus.status(body.get("fundStatus").asText()));
+			}
+		}catch(Exception e){
+			e.printStackTrace();
+			LOGGER.error("基金限额状态查询异常, {}", e.toString());
+		}
+		return fund;
+	}
+	
+	/**
+	 * 持仓收益查询
+	 * @param fundCode
+	 * @param custId
+	 * @param transActionAccountId
+	 * @param transactioncfmdate
+	 * @return
+	 */
+	public Income income(String fundCode, String custId, String transActionAccountId, String transactioncfmdate){
+		LOGGER.info("持仓收益查询, 基金代码|客户ID|交易账户|查询日期: {}", fundCode+"|"+custId+"|"+transActionAccountId+"|"+transactioncfmdate);
+		Map<String, String> params = new HashMap<String, String>();
+		params.put("fundCode", fundCode);
+		params.put("custId", custId);
+		params.put("transActionAccountId", transActionAccountId);
+		params.put("transactioncfmdate", transactioncfmdate);
+		Income income = null;
+		try {
+			JsonNode body = rest.getForObject(Config.getConfigByKey("mcipBaseUrl")+Config.getConfigByKey("ths.fundIncome"), JsonNode.class, params);
+			LOGGER.info("持仓收益查询结果: {}", body);
+			if (body.get("success").asBoolean()){
+				income = new Income();
+				income.setIncome(new BigDecimal(body.get("income").asText()));
+				income.setInterestAmount(new BigDecimal(body.get("confirmedvol").asText()));
+			}
+		}catch(Exception e){
+			e.printStackTrace();
+			LOGGER.error("持仓收益查询异常 , {}", e.toString());
+		}
+		return income;
+	}
+	
+	public Income income(String fundCode, ThsAccount thsAccount, String day){
+		return income(fundCode, thsAccount.getCustId(), thsAccount.getTransActionAccountId(), day);
+	}
+}

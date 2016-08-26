@@ -1,0 +1,17 @@
+#####MCIP接口访问测#########
+mcipBaseUrl=http://123.56.92.10:8989/mc-ws
+ths.fundOpenAccount=/ths/account
+ths.fundStatus=/ths/fundLimitStatus
+ths.fundIncome=/ths/profile
+ths.fundPurchar=/ths/fund
+ths.fundRedemption=/ths/fastRedemption
+
+send.sms=/sms/tpl
+
+cbipBaseUrl=http://100.98.221.141:8090/cbip/rest
+cbip.capital.frozen=/fund/fundFrozen
+cbip.capital.unfrozen=/fund/fundUnfrozen
+cbip.capital.transfer=/fund/fundTransfer
+
+
+verify.err.warning=15201091711

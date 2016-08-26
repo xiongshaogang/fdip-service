@@ -1,0 +1,24 @@
+package com.trusdom.fdip.services;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.trusdom.fdip.form.AccountForm;
+import com.trusdom.fdip.mappers.AccountMapper;
+import com.trusdom.fdip.model.Account;
+
+@Service
+public class AccountService {
+	
+	@Autowired
+	AccountMapper accountMapper;
+	
+	public void openAccount(AccountForm form){
+		Account account = new Account();
+		account.setAccountNo("123123");
+		account.setBankAccountNo("123123");
+		account.setTradePwd("123123");
+		accountMapper.insert(account);
+	}
+	
+}

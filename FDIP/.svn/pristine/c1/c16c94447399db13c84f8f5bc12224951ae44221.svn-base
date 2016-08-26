@@ -1,0 +1,131 @@
+
+package com.trusdom.fdip.model;
+
+import java.io.Serializable;
+import java.util.Date;
+
+import com.trusdom.fdip.common.Json;
+
+/**
+ * @author zhihuayang E-mail:425273175@qq.com
+ * @date 创建时间：2016年5月17日 下午4:55:48
+ * @version 1.0
+ * @parameter
+ * @return
+ */
+
+public class Trade extends BaseCase implements Serializable {
+
+	private static final long serialVersionUID = 8655000504962302999L;
+
+	private Long id;
+
+	private Long thrdAccount;
+
+	private String tradeNo;
+
+	private String extTradeNo;
+
+	private double amount;
+
+	private double sgAmount;
+
+	private String status;
+
+	private Date createTime;
+
+	private Date updateTime;
+
+	private String payDay;
+
+	private Long Fund;
+
+	public Long getId() {
+		return id;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
+	}
+
+	public Long getThrdAccount() {
+		return thrdAccount;
+	}
+
+	public void setThrdAccount(Long thrdAccount) {
+		this.thrdAccount = thrdAccount;
+	}
+
+	public String getTradeNo() {
+		return tradeNo;
+	}
+
+	public void setTradeNo(String tradeNo) {
+		this.tradeNo = tradeNo;
+	}
+
+	public String getExtTradeNo() {
+		return extTradeNo;
+	}
+
+	public void setExtTradeNo(String extTradeNo) {
+		this.extTradeNo = extTradeNo;
+	}
+
+	public double getAmount() {
+		return amount;
+	}
+
+	public void setAmount(double amount) {
+		this.amount = amount;
+	}
+
+	public double getSgAmount() {
+		return sgAmount;
+	}
+
+	public void setSgAmount(double sgAmount) {
+		this.sgAmount = sgAmount;
+	}
+
+	public String getStatus() {
+		return status;
+	}
+
+	public void setStatus(String status) {
+		this.status = status;
+	}
+
+	public Date getCreateTime() {
+		return createTime;
+	}
+
+	public void setCreateTime(Date createTime) {
+		this.createTime = createTime;
+	}
+
+	public Date getUpdateTime() {
+		return updateTime;
+	}
+
+	public void setUpdateTime(Date updateTime) {
+		this.updateTime = updateTime;
+	}
+
+	public String getPayDay() {
+		return payDay;
+	}
+
+	public void setPayDay(String payDay) {
+		this.payDay = payDay;
+	}
+
+	public Long getFund() {
+		return Fund;
+	}
+
+	public void setFund(Long fund) {
+		Fund = fund;
+	}
+
+}

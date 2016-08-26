@@ -1,0 +1,47 @@
+package com.trusdom.fdip.scheduler;
+
+import java.util.List;
+
+import org.quartz.DisallowConcurrentExecution;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.quartz.QuartzJobBean;
+import org.springframework.stereotype.Service;
+
+import com.trusdom.fdip.common.Constants;
+import com.trusdom.fdip.model.Channel;
+import com.trusdom.fdip.model.Channel.Code;
+import com.trusdom.fdip.model.Trade;
+import com.trusdom.fdip.model.Trade.Status;
+import com.trusdom.fdip.services.ChannelService;
+import com.trusdom.fdip.services.TradeService;
+
+@Service
+@DisallowConcurrentExecution
+public class SyncTradeJob extends QuartzJobBean{
+	private static final Logger LOGGER = LoggerFactory.getLogger(SyncTradeJob.class);
+	private static final Code CHANNEL = Code.THS;
+	
+	@Autowired
+	TradeService tradeService;
+	
+	@Autowired
+	ChannelService channelService;
+	@Override
+	protected void executeInternal(JobExecutionContext ctx)
+			throws JobExecutionException {
+		long start = System.currentTimeMillis();
+		LOGGER.info("正在同步同花顺基金进行中的交易...");
+		Channel channel = channelService.QueryByCode(Constants.CHANNEL_THS);
+		List<Trade> trades = tradeService.queryByChannelAndStatus(channel.getId(), Status.INPROGRESS);
+		for (Trade trade : trades) {
+			LOGGER.info("正在同步交易流水为:[{}]的交易记录;", trade.getTradeNo());
+		}
+		long end = System.currentTimeMillis();
+		LOGGER.info("同步同花顺基金进行中的交易完毕! 共耗时:[{}]ms", (end-start));
+	}
+
+}

@@ -1,0 +1,177 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.services;
+
+import java.math.BigDecimal;
+import java.text.ParseException;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.trusdom.fdip.common.Constants;
+import com.trusdom.fdip.mappers.TradeMapper;
+import com.trusdom.fdip.model.Channel;
+import com.trusdom.fdip.model.Fund;
+import com.trusdom.fdip.model.Trade;
+import com.trusdom.fdip.model.Trade.Status;
+import com.trusdom.fdip.model.Trade.TradeType;
+
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年6月15日 下午4:04:21
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+/**
+ * @author lenovo
+ *
+ */
+@Service
+public class TradeService {
+	
+	@Autowired
+	TradeMapper tradeMapper;
+	
+	@Autowired
+	HolidayService holidayService;
+	
+	/**
+	 * 日期工具
+	 * @param date
+	 * @param HHmmss
+	 * @return
+	 * @throws ParseException
+	 */
+	private Date getDate(Date date, String HHmmss) throws ParseException {
+//		return new SimpleDateFormat("yyyyMMddHHmmss")
+//				.parse(new SimpleDateFormat("yyyyMMdd").format(date) + HHmmss);
+		return Constants._SDF_DATETIME.parse(Constants._SDF_DATE.format(date)+HHmmss);
+	}
+	
+	/**
+	 * trade购买记录添加
+	 * @param amount
+	 * @param fund
+	 * @param tradeNo
+	 * @param thrdAccount
+	 * @throws ParseException
+	 */
+	public Trade newBuyTrade(BigDecimal amount, Channel channel, Fund fund,String tradeNo,Long thrdAccount) throws ParseException{
+	    Trade trade=new Trade();
+		trade.setPayday(holidayService.getPayDay());
+		trade.setAmount(amount);
+		trade.setCreateTime(new Date());
+		if (new Date().getHours() < 15 && holidayService.isWorkday(new Date()))
+			trade.setEditableDeadline(getDate(new Date(), "150000"));
+		else
+			trade.setEditableDeadline(getDate(holidayService.nextWorkDay(Calendar.getInstance()), "150000"));
+		trade.setChannel(channel);
+		trade.setFund(fund);
+//		trade.setInterestTime(getDate(holidayService.nextWorkDay(Calendar.getInstance()), "170000"));
+		trade.setTradeType(TradeType.PURCHASE);
+		trade.setRealAmount(amount);
+		trade.setThrdAccount(thrdAccount);
+		trade.setTradeNo(tradeNo);
+		trade.setUpdateTime(new Date());
+		return trade;
+	}
+	
+	/**
+	 * trade赎回记录添加
+	 * @param amount
+	 * @param tradeNo
+	 * @param fund
+	 * @param thrdAccount
+	 */
+	public Trade newRedeTrade(BigDecimal amount,String tradeNo,Channel channel, Fund fund,Long thrdAccount){
+		Trade trade = new Trade();
+		trade.setThrdAccount(thrdAccount);
+		trade.setAmount(amount);
+		trade.setCreateTime(new Date());
+		trade.setChannel(channel);
+		trade.setFund(fund);
+		trade.setTradeNo(tradeNo);
+		trade.setTradeType(TradeType.REDEMPTION);
+		trade.setUpdateTime(new Date());
+		return trade;
+	}
+	
+	@Transactional
+	public void insert(Trade trade){
+		tradeMapper.add(trade);
+	}
+	
+	@Transactional
+	public void updateTradeAmount(BigDecimal sgAmount,Date updateTime,Long id){
+		tradeMapper.updateAmount(sgAmount, updateTime, id);
+	}
+	
+	public List<Trade> findTotalmodify(Long thrdAccount,Long fund,Date editableDeadline){
+		return tradeMapper.findTotalmodify(thrdAccount, fund, editableDeadline);
+	}
+
+	@Transactional
+	public void save(Trade trade){
+		tradeMapper.add(trade);
+	}
+	
+	public Trade findByApplyNo(String applyNo){
+		Trade trade = tradeMapper.findByExtTradeNo(applyNo);
+		return trade;
+	}
+	
+	public Trade findByTradeNo(String tradeNo){
+		Trade trade = tradeMapper.findByTradeNo(tradeNo);
+		return trade;
+	}
+	
+	List<Trade> queryByDateForVerify(Long channel, String startTime, String endTime){
+		return tradeMapper.queryByDateForVerify(channel, startTime, endTime);
+	}
+	
+	BigDecimal countTotalAmountByDateForVerify(Long channel, String startTime, String endTime){
+		return tradeMapper.countTotalAmountByDateForVerify(channel, startTime, endTime);
+	}
+	
+	public void updateStatus(Long id, String extTradeNo, Status status){
+		tradeMapper.updateStatus(status, extTradeNo, new Date(), id);
+	}
+	
+	public void updateStatusByTradeNo(Long id, String tradeNo, Status status){
+		tradeMapper.updateStatusByTradeNo(tradeNo, status, new Date());
+	}
+	
+	public List<Trade> queryByChannelAndStatus(Long channelId, Status status){
+		return tradeMapper.queryByChannelAndStatus(channelId, status);
+	}
+	
+	/**
+	 * 获取尚未确认的申购交易总份额
+	 * @param thrdAccount
+	 * @param channel
+	 * @param fund
+	 * @return
+	 * 相对于当前时间, 上一个交易日(工作日)15点之后的申购交易都是尚未确认的交易
+	 */
+	public BigDecimal unconfirmTotalAmount(String date, Long thrdAccount, Long channel, Long fund){
+		Calendar cal = Calendar.getInstance();
+		try{
+			cal.setTime(Constants._SDF_DATE.parse(date));
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		cal.setTime(holidayService.prevWorkDay(cal));
+		cal.set(Calendar.HOUR_OF_DAY, 15);
+		cal.set(Calendar.MINUTE, 0);
+		cal.set(Calendar.SECOND, 0);
+		return tradeMapper.unconfirmTotalAmount(thrdAccount, fund, cal.getTime());
+	}
+}

@@ -1,0 +1,28 @@
+package com.trusdom.fdip.controller;
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.trusdom.fdip.mappers.HolidaySQLProvider;
+import com.trusdom.fdip.model.Holiday;
+import com.trusdom.fdip.services.HolidayService;
+
+@Controller
+@RequestMapping("/sync")
+public class SyncHolidayController {
+
+	@Autowired
+	HolidayService holidayService;
+	
+	@RequestMapping("/holidays")
+	public @ResponseBody String syncHoliday(@RequestBody List<Holiday> holidays){
+		holidayService.syncHoliday(holidays);
+		return "asdfasdf";
+	}
+}

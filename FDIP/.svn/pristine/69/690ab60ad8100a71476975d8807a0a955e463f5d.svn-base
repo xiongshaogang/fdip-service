@@ -1,0 +1,96 @@
+package com.trusdom.fdip.services;
+
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
+
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import redis.clients.jedis.Jedis;
+
+import com.trusdom.fdip.common.Constants;
+import com.trusdom.fdip.mappers.HolidayMapper;
+import com.trusdom.fdip.model.Holiday;
+import com.trusdom.fdip.spring.configs.RedisConfig;
+
+@Service
+public class HolidayService {
+	private static final SimpleDateFormat SDF_DATETIME = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	private static final SimpleDateFormat SDF_DATE = new SimpleDateFormat("yyyy-MM-dd");
+	@Autowired
+	HolidayMapper holidayMapper;
+	public String getPayDay(){
+		Calendar cal = Calendar.getInstance();
+		String today = SDF_DATE.format(cal.getTime());
+		Jedis jedis = RedisConfig.getJedis();
+		String payday = jedis.get(Constants.PAYDAY_KEY+today);
+		if (StringUtils.isNotBlank(payday)) {
+			System.err.println("redis");
+			return payday;
+		}else{
+			int hour = cal.get(Calendar.HOUR_OF_DAY);
+			//非工作日或者下午15点之后(不管是否工作日), 都需要在未来第二个工作日才能支付(支付给基金公司)
+			if (isNonWorkday(cal.getTime()) || hour >= Constants.DEFAULT_TIME_POINT){
+				Date fworday = nextWorkDay(cal);
+				cal.setTime(fworday);
+			}else{
+			}
+			Date date = nextWorkDay(cal);
+			payday = SDF_DATE.format(date);
+			jedis.set(Constants.PAYDAY_KEY+today, payday);
+			return payday;
+			
+		}
+	}
+	
+	public Date nextWorkDay(Calendar now){
+		now.add(Calendar.DATE, 1);
+		String next = SDF_DATE.format(now.getTime());
+		while(isNonWorkday(next)){
+			now.add(Calendar.DATE, 1);
+			next = SDF_DATE.format(now.getTime());
+		}
+		return now.getTime();
+	}
+	
+	public Date nextWorkDay(){
+		return nextWorkDay(Calendar.getInstance());
+	}
+	
+	public Date prevWorkDay(Calendar now){
+		now.add(Calendar.DATE, -1);
+		String prev = SDF_DATE.format(now.getTime());
+		while(isNonWorkday(prev)){
+			now.add(Calendar.DATE, -1);
+			prev = SDF_DATE.format(now.getTime());
+		}
+		return now.getTime();
+	}
+	
+	public Date prevWorkDay(){
+		return prevWorkDay(Calendar.getInstance());
+	}
+	
+	public Boolean isWorkday(Date date){
+		return !isNonWorkday(date);
+	}
+	
+	public Boolean isNonWorkday(Date date){
+		return isNonWorkday(SDF_DATE.format(date));
+	}
+	
+	public Boolean isNonWorkday(String date){
+		return (holidayMapper.exists(date)>0)?true:false;
+	}
+	
+	public void syncHoliday(List<Holiday> holidays){
+		holidayMapper.sync(holidays);
+	}
+	
+	public List<Holiday> queryAllHoliday(){
+		return holidayMapper.all();
+	}
+}

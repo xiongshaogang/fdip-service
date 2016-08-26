@@ -1,0 +1,458 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.common;
+
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.InputStreamReader;
+import java.math.BigDecimal;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
+import java.util.Date;
+import java.util.Map;
+
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.client.RestTemplate;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.trusdom.fdip.form.BuyOrRedeForm;
+import com.trusdom.fdip.vo.CbipFrozenOrUnFrozenResquestVo;
+import com.trusdom.fdip.vo.CbipReFundRequestVo;
+import com.trusdom.fdip.vo.CbipResponseVo;
+import com.trusdom.fdip.vo.CbipTransferRequestVo;
+import com.trusdom.fdip.vo.CbipTransferRequestVo.TradeType;
+import com.trusdom.fdip.vo.ThsMcipBuyFundRequestVo;
+import com.trusdom.fdip.vo.ThsMcipBuyFundResponseVo;
+import com.trusdom.fdip.vo.ThsMcipFastRedeRequestVo;
+import com.trusdom.fdip.vo.ThsMcipIncomeRateResponseVo;
+import com.trusdom.fdip.vo.ThsMcipModifyRequestVo;
+import com.trusdom.fdip.vo.ThsMcipModifyResponseVo;
+import com.trusdom.fdip.vo.ThsMcipTotalAmountResponseVo;
+import com.trusdom.fdip.vo.ThsMcipTradingResponseVo;
+import com.trusdom.fdip.vo.UserVo;
+
+/**
+ * @author zhihuayang E-mail:425273175@qq.com
+ * @date 创建时间：2016年5月11日 上午9:20:59 可以适用于http和https请求
+ * @version 1.0
+ * @parameter
+ * @return
+ */
+
+public class HttpUtil {
+	private static Logger log = LoggerFactory.getLogger(HttpUtil.class);
+	
+	private static final String MCIPURL = Config.getConfigByKey("mcipBaseUrl", "");
+
+	private static final String CBIPURL = Config.getConfigByKey("cbipBaseUrl", "");
+	
+    private static RestTemplate restTemplate=new RestTemplate();
+
+	public static String sendRequest(String url, boolean https, String method, String params, boolean json)
+			throws Exception {
+		HttpURLConnection conn = null;
+		try {
+			URL requsturl = new URL(url);
+			if (https) {
+				conn = (HttpsURLConnection) requsturl.openConnection();
+				((HttpsURLConnection) conn).setSSLSocketFactory(SSLUtil.getSSl());
+			}
+			if (json)
+				conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+			else
+				conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+			conn.setDoOutput(true);
+			conn.setDoInput(true);
+			conn.setUseCaches(false);
+			conn.setConnectTimeout(3000);
+			conn.setReadTimeout(3000);
+			conn.setRequestMethod(method);
+			if (method.equalsIgnoreCase("POST")) {
+				DataOutputStream out = new DataOutputStream(conn.getOutputStream());
+				out.write(params.getBytes("UTF-8"));
+				out.flush();
+				out.close();
+			} else
+				conn.connect();
+			BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+			System.out.println("1111111111");
+			String lines;
+			StringBuffer sb = new StringBuffer("");
+			while ((lines = reader.readLine()) != null) {
+				lines = new String(lines.getBytes(), "utf-8");
+				sb.append(lines);
+			}
+			reader.close();
+			// 断开连接
+			conn.disconnect();
+			return sb.toString();
+
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			// 连接异常
+			e.printStackTrace();
+			throw new Exception();
+		}
+	}
+
+	public static void main(String[] args) {
+//		try {
+//			System.out.println(sendRequest("https://www.baidu1.com", true, "GET", null, false));
+//		} catch (Exception e) {
+//			// TODO Auto-generated catch block
+//			System.out.println("error");
+//		}
+//		try {
+//			System.out.println(sendRequest("https://www.baidu.com", true, "GET", null, false));
+//			return ;
+//		} catch (Exception e) {
+//			// TODO Auto-generated catch block
+//			System.out.println("error");
+//			return ;
+//		}
+//		finally {
+//			System.out.println("s11111111");
+//		}
+//		try {
+////			CbipFrozenOrUnFrozenResquestVo cbipFrozenOrUnFrozenResquestVo = new CbipFrozenOrUnFrozenResquestVo();
+////			cbipFrozenOrUnFrozenResquestVo.setAccountNo("test");
+////			cbipFrozenOrUnFrozenResquestVo.setAmount(new BigDecimal("100.00")); 
+////			sendRequest("https://testkxgz.trusdom.com/i/fund/fundFrozen", true, "POST", cbipFrozenOrUnFrozenResquestVo.toString(), true);
+//			sendRequest("https://open.weixin.qq.com/", true,"GET", null, false);
+//		} catch (Exception e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
+//		try {
+//			System.out.println(send("https://www.kaixingongzi.com/", "GET", null, null));
+//		} catch (Exception e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
+		
+		try {
+			mcipFastRedeThs("161623", CodeBuilder.generatorTradeNo(null), "600100004282", "034a9efe9dbf29b39f78ee6f6510379a", "100100004281", "13161527632", new BigDecimal("200.00"));
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
+	/**
+	 * 该方法有返回结果只有get和post方法
+	 * 
+	 * @param url
+	 * @param method
+	 * @param request
+	 * @param headers
+	 * @return
+	 * @throws Exception
+	 */
+	public static String send(String url, String method, Object request, Map<String, String> headers) throws Exception {
+		String result = null;
+		try {
+			log.info("请求地址:" + url);
+			if (request != null) {
+				log.info("请求body参数:" + request.toString());
+			}
+			if (headers != null) {
+				log.info("请求header参数如下:");
+				for (Map.Entry<String, String> entry : headers.entrySet()) {
+					log.info(entry.getKey() + ":" + entry.getValue());
+				}
+			}
+			switch (method) {
+			case "POST":
+				if (headers != null)
+					result = restTemplate.postForObject(url, request, String.class, headers);
+				else
+					result = restTemplate.postForObject(url, request, String.class);
+				break;
+			case "GET":
+				if (headers != null)
+					result = restTemplate.getForObject(url, String.class, headers);
+				else
+					result = restTemplate.getForObject(url, String.class);
+				break;
+			case "DELETE":
+				if (headers != null)
+					restTemplate.delete(url, headers);
+				else
+					restTemplate.delete(url);
+				break;
+			case "PUT":
+				if (headers != null)
+					restTemplate.put(url, request, headers);
+				else
+					restTemplate.put(url, request);
+				break;
+			default:
+				log.error("请求方式不正确,注意请求方式只支持大写的POST.GET.PUT.DELETE");
+				break;
+			}
+			log.info("请求返回结果:" + result);
+			// return Json.fromJson(Json.parse(result), response);
+			return result;
+		} catch (Exception e) {
+			log.error(e.getMessage());
+			throw new Exception(e.getMessage());
+		}
+	}
+	
+	/**
+	 * cbip账户冻结请求
+	 * @param accountNo
+	 * @param amount
+	 * @return
+	 * @throws Exception
+	 */
+	public  static String cbipFrozen(String accountNo, BigDecimal amount) throws Exception {
+		CbipFrozenOrUnFrozenResquestVo cbipFrozenOrUnFrozenResquestVo = new CbipFrozenOrUnFrozenResquestVo();
+		cbipFrozenOrUnFrozenResquestVo.setAccountNo(accountNo);
+		cbipFrozenOrUnFrozenResquestVo.setAmount(amount);
+		CbipResponseVo cbipResponseVo = Json.fromJson(
+				Json.parse(
+						send(CBIPURL + Config.getConfigByKey("cbip.capital.frozen"), "POST", cbipFrozenOrUnFrozenResquestVo, null)),
+				CbipResponseVo.class);
+		if (!cbipResponseVo.getSuccess())
+			throw new Exception();
+		return cbipResponseVo.getTradeNo();
+	}
+	
+	/**
+	 * cbip个人账户解冻
+	 * @param accountNo
+	 * @param amount
+	 * @return
+	 * @throws Exception
+	 */
+	public static String cbipUnFrozen(String accountNo,BigDecimal amount) throws Exception{
+		CbipFrozenOrUnFrozenResquestVo cbipFrozenOrUnFrozenResquestVo=new CbipFrozenOrUnFrozenResquestVo();
+		cbipFrozenOrUnFrozenResquestVo.setAccountNo(accountNo);
+		cbipFrozenOrUnFrozenResquestVo.setAmount(amount);
+		CbipResponseVo cbipResponseVo=Json.fromJson(Json.parse(send(CBIPURL+Config.getConfigByKey("cbip.capital.unFrozen"), "POST", cbipFrozenOrUnFrozenResquestVo, null)), CbipResponseVo.class);
+		if (!cbipResponseVo.getSuccess())
+			throw new Exception();
+		return cbipResponseVo.getTradeNo();
+	}
+	
+	
+	/**
+	 * cbip基金账户账户解冻
+	 * @param accountNo
+	 * @param amount
+	 * @return
+	 * @throws Exception
+	 */
+	public static String cbipChannelUnFrozen(String channel,BigDecimal amount) throws Exception{
+		CbipReFundRequestVo cbipReFundRequestVo=new CbipReFundRequestVo();
+		cbipReFundRequestVo.setChannel(channel);
+		cbipReFundRequestVo.setAmount(amount);
+		CbipResponseVo cbipResponseVo=Json.fromJson(Json.parse(send(CBIPURL+Config.getConfigByKey("cbip.capital.withdraw"), "POST", cbipReFundRequestVo, null)), CbipResponseVo.class);
+		if (!cbipResponseVo.getSuccess())
+			throw new Exception();
+		return cbipResponseVo.getTradeNo();
+	}
+	
+	
+	/**
+	 * cbip账户划账
+	 * @param accountNoFrom
+	 * @param accountNoTo
+	 * @param amount
+	 * @return
+	 * @throws Exception
+	 */
+	public  static String cbipTransfer(String accountNo, String channel, BigDecimal amount,boolean is_transfer) throws Exception {
+		CbipTransferRequestVo cbipTransferRequestVo = new CbipTransferRequestVo();
+		cbipTransferRequestVo.setAccountNo(accountNo);
+		cbipTransferRequestVo.setChannel(channel);
+		cbipTransferRequestVo.setAmount(amount);
+		if(is_transfer)
+			cbipTransferRequestVo.setTransferType(TradeType.TRANSFER);
+		else
+			cbipTransferRequestVo.setTransferType(TradeType.REFUND);
+		CbipResponseVo cbipResponseVo = Json.fromJson(
+				Json.parse(send(CBIPURL + Config.getConfigByKey("cbip.capital.transfer"), "POST", cbipTransferRequestVo, null)),
+				CbipResponseVo.class);
+		if (!cbipResponseVo.getSuccess())
+			throw new Exception();
+		return cbipResponseVo.getTradeNo();
+	}
+	
+	/**
+	 * 发送mcip申购并获取结果
+	 * 
+	 * @param userVo
+	 * @param buyOrRedeForm
+	 * @return
+	 */
+	public  static ThsMcipBuyFundResponseVo mcipBuyThs(UserVo userVo, BuyOrRedeForm buyOrRedeForm) throws Exception {
+		ThsMcipBuyFundRequestVo thsMcipBuyFundRequestVo = new ThsMcipBuyFundRequestVo();
+		thsMcipBuyFundRequestVo.setFundCode(buyOrRedeForm.getFundCode());
+		thsMcipBuyFundRequestVo.setMoney(buyOrRedeForm.getAmount().toString());
+		thsMcipBuyFundRequestVo.setTradePassword(userVo.getTradePassword());
+		thsMcipBuyFundRequestVo.setTransActionAccountId(userVo.getTransActionAccountId());
+		thsMcipBuyFundRequestVo.setTxTraceNo(buyOrRedeForm.getTradeNo());
+		thsMcipBuyFundRequestVo.setUserid(userVo.getUserId());
+		ThsMcipBuyFundResponseVo thsMcipBuyFundResponseVo = Json.fromJson(
+				Json.parse(send(MCIPURL + "/ths/fund", "POST", thsMcipBuyFundRequestVo, null)),
+				ThsMcipBuyFundResponseVo.class);
+		if (thsMcipBuyFundResponseVo.getData() == null)
+			throw new Exception();
+		return thsMcipBuyFundResponseVo;
+	}
+	
+	/**
+	 * 获取持仓收益
+	 * 
+	 * @param userVo
+	 * @param fundCode
+	 * @return
+	 * @throws Exception
+	 */
+	public static  ThsMcipTotalAmountResponseVo mcipGetTotalAmountThs(String transActionAccountId,String custId, String fundCode) throws Exception {
+		Date date=new Date();
+	    String transactioncfmdate=Constants._SDF_DATE.format(date);
+//		if(date.getHours()>=17){
+			transactioncfmdate=Constants._SDF_DATE.format(date);
+//		}
+//		else{
+			transactioncfmdate=DateUtil.yestoday(Constants._SDF_DATE);
+//		}
+		String url = MCIPURL + "/ths/profile?transActionAccountId=" + transActionAccountId + "&userid="
+				+ custId + "&fundCode=" + fundCode
+				+ "&transactioncfmdate=" + transactioncfmdate;
+		ThsMcipTotalAmountResponseVo thsMcipTotalAmountResponseVo = Json
+				.fromJson(Json.parse(send(url, "GET", null, null)), ThsMcipTotalAmountResponseVo.class);
+		return thsMcipTotalAmountResponseVo;
+	}
+	
+	/**
+	 * 同花順進行中交易
+	 * @param transActionAccountId
+	 * @param custId
+	 * @return
+	 * @throws Exception
+	 */
+	public static ThsMcipTradingResponseVo mcipGetTradingVo(String transActionAccountId,String custId) throws Exception{
+		String url=MCIPURL+"/ths/tradeProcessing?transActionAccountId="+transActionAccountId+"&custId="+custId;
+		ThsMcipTradingResponseVo thsMcipTradingResponseVo=Json.fromJson(Json.parse(send(url, "GET", null, null)), ThsMcipTradingResponseVo.class);
+		if(!thsMcipTradingResponseVo.getSuccess()||thsMcipTradingResponseVo.getData()==null)
+			throw new Exception();
+		return thsMcipTradingResponseVo;
+				
+	}
+	
+	/**
+	 * 7日年化收益查询
+	 * @param fundCode
+	 * @param queryDate
+	 * @return
+	 * @throws Exception
+	 */
+	public static ThsMcipIncomeRateResponseVo mcipIncomeRate(String fundCode, String queryDate) throws Exception{
+		ThsMcipIncomeRateResponseVo thsMcipIncomeRateResponseVo = Json.fromJson(Json.parse(send(
+				MCIPURL + "/ths/yield?fundCode=" + fundCode + "&queryDate=" + queryDate, "GET", null, null)),
+				ThsMcipIncomeRateResponseVo.class);
+		return thsMcipIncomeRateResponseVo;
+	}
+	
+	/**
+	 * 同花顺份额修改
+	 * 
+	 * @param trade
+	 * @param mount
+	 * @param userVo
+	 * @throws Exception
+	 */
+	public static  String mcipModifyThs(String extTradeNo, String mount, String tradePassword,String transActionAccountId,String userId, String txTraceNo) throws Exception {
+		ThsMcipModifyRequestVo thsMcipModifyRequestVo = new ThsMcipModifyRequestVo();
+		thsMcipModifyRequestVo.setAppsheetSerialNo(extTradeNo);
+		thsMcipModifyRequestVo.setNewApplicationAmount(mount);
+		thsMcipModifyRequestVo.setTradePassword(tradePassword);
+		thsMcipModifyRequestVo.setTransActionAccountId(transActionAccountId);
+		thsMcipModifyRequestVo.setUserid(userId);
+		thsMcipModifyRequestVo.setTxTraceNo(txTraceNo);
+		ThsMcipModifyResponseVo thsMcipModifyResponse = Json.fromJson(
+				Json.parse(send(MCIPURL + "/ths/tradeMoney", "POST", thsMcipModifyRequestVo, null)),
+				ThsMcipModifyResponseVo.class);
+		if (thsMcipModifyResponse.getData() == null)
+			throw new RuntimeException();
+		else
+			return thsMcipModifyResponse.getData().getAppsheetSerialNo();
+	}
+	
+	
+	/**
+	 * T+0快速赎回
+	 * 
+	 * @param buyOrRedeForm
+	 * @param userVo
+	 * @param canuse
+	 * @throws Exception
+	 */
+	public static String mcipFastRedeThs(String fundCode,String tradeNo, String transActionAccountId,String tradePassword,String userId,String phone, BigDecimal amount) throws Exception {
+		ThsMcipFastRedeRequestVo thsMcipFastRedeRequestVo = new ThsMcipFastRedeRequestVo();
+		thsMcipFastRedeRequestVo.setFundCode(fundCode);
+		thsMcipFastRedeRequestVo.setTransActionAccountId(transActionAccountId);
+		thsMcipFastRedeRequestVo.setLargeRedemptionSelect("0");
+		thsMcipFastRedeRequestVo.setTradePassword(tradePassword);
+		thsMcipFastRedeRequestVo.setMoney(amount.toString());
+		thsMcipFastRedeRequestVo.setMobileTelNo(phone);
+		thsMcipFastRedeRequestVo.setUserid(userId);
+		thsMcipFastRedeRequestVo.setTxTraceNo(tradeNo);
+		JsonNode jsonNode=Json.parse(send(MCIPURL + "/ths/fastRedemption", "POST", thsMcipFastRedeRequestVo, null));
+//		ThsMcipFastRedeResponseVo thsMcipFastRedeResponseVo = Json.fromJson(jsonNode,
+//				ThsMcipFastRedeResponseVo.class);
+		if (jsonNode.get("success").asBoolean()){
+			return "";
+		}
+		else{
+			throw new Exception();
+		}
+	}
+	
+}
+
+/**
+ * 生成sslfactroy
+ * 
+ * @author lenovo
+ *
+ */
+class SSLUtil {
+
+	static final TrustManager[] trustAllCerts = new TrustManager[] { new X509TrustManager() {
+		public X509Certificate[] getAcceptedIssuers() {
+			return null;
+		}
+
+		public void checkClientTrusted(X509Certificate[] certs, String authType) {
+		}
+
+		public void checkServerTrusted(X509Certificate[] certs, String authType) {
+		}
+	} };
+
+	static SSLSocketFactory getSSl() throws NoSuchAlgorithmException, KeyManagementException, NoSuchProviderException {
+		SSLContext sc = SSLContext.getInstance("TLS");
+		// SSLContext sc = SSLContext.getInstance("SSL", "SunJSSE");
+		sc.init(null, trustAllCerts, new SecureRandom());
+		return sc.getSocketFactory();
+	}
+
+}

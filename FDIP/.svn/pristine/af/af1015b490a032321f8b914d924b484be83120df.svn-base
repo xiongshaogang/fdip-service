@@ -1,0 +1,17 @@
+package com.trusdom.fdip.mappers;
+
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Options;
+import org.apache.ibatis.annotations.Select;
+
+import com.trusdom.fdip.model.Account;
+
+public interface AccountMapper {
+	
+	@Insert({"insert into account(accountNo,bankAccountNo,tradePwd) values(#{accountNo},#{bankAccountNo},#{tradePwd})"})
+	@Options(keyProperty="id",keyColumn="id",useGeneratedKeys=true)
+	Long insert(Account account);
+	
+	@Select({"select * from account where id = #{id}"})
+	Account findById(Long id);
+}

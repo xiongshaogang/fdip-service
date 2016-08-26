@@ -1,0 +1,28 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.vo;
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年6月2日 下午2:52:59
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+/**
+ * @author lenovo
+ *
+ */
+public class ThsMcipBuyFundResponseVo extends AbstractVo<ThsMcipBuyFundResponseVo>{
+
+	private String appsheetSerialNo;
+
+	public String getAppsheetSerialNo() {
+		return appsheetSerialNo;
+	}
+
+	public void setAppsheetSerialNo(String appsheetSerialNo) {
+		this.appsheetSerialNo = appsheetSerialNo;
+	}
+	
+}

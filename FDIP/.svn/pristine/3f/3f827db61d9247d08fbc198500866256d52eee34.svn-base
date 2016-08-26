@@ -1,0 +1,42 @@
+package com.trusdom.fdip.model;
+
+import java.io.Serializable;
+
+import com.trusdom.fdip.common.Json;
+
+public class Address implements Serializable{
+
+	private long id;
+	
+	private String name;
+
+	public long getId() {
+		return id;
+	}
+
+	public void setId(long id) {
+		this.id = id;
+	}
+
+	public String getName() {
+		return name;
+	}
+	
+	public Address() {
+	}
+
+	public Address(long id, String name){
+		this.id = id;
+		this.name = name;
+	}
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	@Override
+	public String toString() {
+		return Json.toJson(this).toString();
+	}
+	
+	
+}

@@ -1,0 +1,45 @@
+package com.trusdom.fdip.common;
+
+import java.util.ResourceBundle;
+
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * 
+* @ClassName: Config 
+* @Description: TODO(***)
+* @author zjb 
+* @date May 16, 2016 5:47:09 PM
+*
+ */
+public class Config {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(Config.class);
+	private static ResourceBundle iResourceBundle;
+	
+	static {
+		try{
+			//load configs.properties
+			iResourceBundle = ResourceBundle.getBundle("configs");
+		}catch(Exception e){
+			e.printStackTrace();
+			LOGGER.error("无法加载相关配置,系统退出!");
+			LOGGER.error(e.toString());
+			System.exit(0);
+		}
+	}
+	
+	public static String getConfigByKey(String key, String defaultValue){
+		String tValue = null;
+		try {
+			tValue = iResourceBundle.getString(key).trim();
+		} catch (Exception e) {
+			LOGGER.debug("取出配置文件中指定参数[{}]值时发生异常! ", key);
+			LOGGER.error("Exception : " + e.getMessage());
+			LOGGER.warn("return defaultValue: [{}]", defaultValue);
+		}
+		return StringUtils.isBlank(tValue)?defaultValue:tValue;
+	}
+}

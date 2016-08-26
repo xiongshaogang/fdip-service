@@ -1,0 +1,48 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.model;
+
+import java.io.Serializable;
+
+/**
+ * @author zhihuayang E-mail:425273175@qq.com
+ * @date 创建时间：2016年5月6日 下午5:03:58
+ * @version 1.0
+ * @parameter
+ * @return
+ */
+
+public class Account implements Serializable {
+
+	private Long id;
+	private String accountNo;				//摊位号
+	private String bankAccountNo;			//银行子账号
+	private String tradePwd;				//交易密码
+	
+	public Long getId() {
+		return id;
+	}
+	public void setId(Long id) {
+		this.id = id;
+	}
+	public String getAccountNo() {
+		return accountNo;
+	}
+	public void setAccountNo(String accountNo) {
+		this.accountNo = accountNo;
+	}
+	public String getBankAccountNo() {
+		return bankAccountNo;
+	}
+	public void setBankAccountNo(String bankAccountNo) {
+		this.bankAccountNo = bankAccountNo;
+	}
+	public String getTradePwd() {
+		return tradePwd;
+	}
+	public void setTradePwd(String tradePwd) {
+		this.tradePwd = tradePwd;
+	}
+	
+}

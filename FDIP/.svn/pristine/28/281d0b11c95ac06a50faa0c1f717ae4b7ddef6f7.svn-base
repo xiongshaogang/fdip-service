@@ -1,0 +1,27 @@
+package com.trusdom.fdip.services.mcip;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.trusdom.fdip.form.mcip.OpenThsAccountForm;
+import com.trusdom.fdip.model.account3RD.ThsAccount;
+
+@Service
+public class McipThsFundService {
+
+	@Autowired
+	RestTemplate rest;
+	
+	public ThsAccount openAccount(OpenThsAccountForm form){
+		ResponseEntity<JsonNode> response = rest.postForEntity("", form, JsonNode.class);
+		if (response.getStatusCode().equals(HttpStatus.OK)){
+			
+		}
+		JsonNode body = response.getBody();
+		return null;
+	}
+}

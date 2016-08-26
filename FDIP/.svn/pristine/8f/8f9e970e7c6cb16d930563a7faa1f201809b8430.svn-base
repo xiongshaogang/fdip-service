@@ -1,0 +1,187 @@
+package com.trusdom.fdip.services;
+
+import java.math.BigDecimal;
+import java.util.Calendar;
+import java.util.Date;
+
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.trusdom.fdip.common.Constants;
+import com.trusdom.fdip.form.BuyOrRedeForm;
+import com.trusdom.fdip.mappers.CapitalAllocationMapper;
+import com.trusdom.fdip.model.Account;
+import com.trusdom.fdip.model.Account3RD;
+import com.trusdom.fdip.model.Channel;
+import com.trusdom.fdip.model.Fund;
+import com.trusdom.fdip.services.cbip.AccountTransferService;
+import com.trusdom.fdip.vo.BaseVo;
+import com.trusdom.fdip.vo.cbip.CapitalAllocationVo;
+
+@Service
+public class FundTradeService {
+	private static final Logger LOGGER = LoggerFactory
+			.getLogger(FundTradeService.class);
+
+	@Autowired
+	ChannelService channelService;
+
+	@Autowired
+	FundService fundService;
+
+	@Autowired
+	AccountService accountService;
+	
+	@Autowired
+	Account3RDService account3RDService;
+
+	@Autowired
+	HolidayService holidayService;
+
+	@Autowired
+	CapitalAllocationMapper capitalAllocationMapper;
+	
+	@Autowired
+	AccountTransferService accountTransferService;
+
+	public final BaseVo validate(BuyOrRedeForm form) {
+		BaseVo result = new BaseVo();
+		Channel channel = getChannel(form.getChannel());
+		if (null == channel) {
+			result.createError("channel.illegal");
+			return result;
+		}
+		Account account = getAccount(form
+				.getAccountNo());
+		if (account == null) {
+			result.createError("account.notFound");
+			return result;
+		}
+		Fund fund = getFund(form.getFundCode());
+		if (fund == null) {
+			result.createError("fund.notfund");
+			return result;
+		}
+		return result;
+	}
+
+	public final Channel getChannel(String channelCode){
+		return channelService.QueryByCode(channelCode);
+	}
+	
+	public final Fund getFund(String fundCode){
+		return fundService.queryByCode(fundCode);
+	}
+	
+	public final Account getAccount(String accountNo){
+		return accountService.queryAccountByAccountNo(accountNo);
+	}
+	
+	public final Account3RD getAccount3RD(String channel, String accountNo){
+		return account3RDService.queryByChannlAndAccount(getChannel(channel), getAccount(accountNo));
+	}
+	
+	/**
+	 * 个人资金冻结
+	 * @param accountNo
+	 * @param amount
+	 * @return
+	 */
+	public final Boolean frozen(String accountNo, BigDecimal amount){
+		Boolean isSucc = true;
+		try{
+			CapitalAllocationVo result = accountTransferService.frozen(accountNo, amount);
+			if (result.isSuccess() && StringUtils.isNotBlank(result.getTradeNo())) {
+			} else {
+				isSucc = false;
+			}
+		}catch(Exception e){
+			e.printStackTrace();
+			isSucc = false;
+		}
+		return isSucc;
+	}
+	/**
+	 * 资金解冻
+	 * @param accountNo
+	 * @param amount
+	 * @return
+	 */
+	public final Boolean unFrozen(String accountNo, BigDecimal amount){
+		Boolean isSucc = true;
+		try{
+			CapitalAllocationVo result = accountTransferService.unFrozen(accountNo, amount);
+			if (result.isSuccess() && StringUtils.isNotBlank(result.getTradeNo())) {
+			} else {
+				isSucc = false;
+			}
+		}catch(Exception e){
+			isSucc = false;
+		}
+		return isSucc;
+	}
+
+//	public final String transfer(String channel , String accountNo, BigDecimal amount, String transferType){
+//		String isSucc = "";
+//		try{
+//			CapitalAllocationVo result = accountTransferService.transfer(channel, accountNo, transferType, amount);
+//			if (result.isSuccess() && StringUtils.isNotBlank(result.getTradeNo())) {
+//			} else {
+//				isSucc = false;
+//			}
+//		}catch(Exception e){
+//			isSucc = false;
+//		}
+//		return isSucc;
+//	}
+	
+	public final String transfer(String channel , String accountNo, BigDecimal amount, String transferType){
+		String result="";
+		try{
+			CapitalAllocationVo capitalAllocationVo = accountTransferService.transfer(channel, accountNo, transferType, amount);
+			if (capitalAllocationVo.isSuccess() && StringUtils.isNotBlank(capitalAllocationVo.getTradeNo()))
+				result=capitalAllocationVo.getTradeNo();
+				return result;
+		}catch(Exception e){
+			e.printStackTrace();
+			LOGGER.error("资金划拨异常!! {}", e.getCause());
+			return result;
+		}
+	}
+	
+	
+	
+	/**
+	 * 获取可修改时间节点
+	 * 当前日期为工作日&&在15点前申购, 则可修改截止时间为当日15点 
+	 * 否则可修改截至时间为下个工作日的15点
+	 * 
+	 * @return
+	 */
+	public final Date editableDeadline() {
+		Calendar now = Calendar.getInstance();
+		LOGGER.info("获取当前时间: {}", Constants.SDF_DATETIME.format(now.getTime()));
+		if (now.get(Calendar.HOUR_OF_DAY) < Constants.DEFAULT_TIME_POINT
+				&& holidayService.isWorkday(now.getTime())) {
+		} else {
+			now.setTime(holidayService.nextWorkDay(now));
+		}
+		now.set(Calendar.HOUR, 15);
+		now.set(Calendar.MINUTE, 0);
+		now.set(Calendar.SECOND, 0);
+		return now.getTime();
+	}
+
+	public BaseVo purchase(BuyOrRedeForm form) {
+		LOGGER.info("基金申购, params: [{}]", form);
+		return validate(form);
+	};
+
+	public BaseVo redemption(BuyOrRedeForm form) {
+		LOGGER.info("基金赎回, params: [{}]", form);
+		return validate(form);
+	};
+}

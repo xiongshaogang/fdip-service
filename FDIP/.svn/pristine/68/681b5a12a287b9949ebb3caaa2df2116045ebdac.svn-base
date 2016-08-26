@@ -1,0 +1,38 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.vo;
+
+import java.util.List;
+
+import com.trusdom.fdip.model.IncomeRate;
+import com.trusdom.fdip.vo.AbstractVo;
+import com.trusdom.fdip.vo.BaseVo;
+
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年6月16日 下午6:34:10
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+/**
+ * @author lenovo
+ *
+ */
+public class IncomeRatesVo extends BaseVo{
+	
+	private List<IncomeRateVo> results;
+
+	public List<IncomeRateVo> getResults() {
+		return results;
+	}
+
+	public void setResults(List<IncomeRateVo> results) {
+		this.results = results;
+	}
+
+	
+	
+
+}

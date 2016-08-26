@@ -1,0 +1,31 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  
+  <!-- web项目，FDIP服务的主要实现 -->
+  
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.trusdom</groupId>
+    <artifactId>FDIP</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+  </parent>
+  <artifactId>fdip-service</artifactId>
+  <packaging>war</packaging>
+  
+  <dependencies>
+  	<dependency>
+  		<groupId>com.trusdom</groupId>
+  		<artifactId>fdip-api</artifactId>
+  		<version>${project.version}</version>
+  	</dependency>
+  	
+  	<dependency>
+  		<groupId>com.trusdom</groupId>
+  		<artifactId>fdip-common</artifactId>
+  		<version>${project.version}</version>
+  	</dependency>
+  </dependencies>
+  
+  <build>
+  	<finalName>fdip</finalName>
+  </build>
+</project>

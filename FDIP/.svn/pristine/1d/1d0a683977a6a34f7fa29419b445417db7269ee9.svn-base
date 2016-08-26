@@ -1,0 +1,90 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.scheduler;
+
+import java.math.BigDecimal;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+
+import org.jboss.logging.Logger;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.quartz.QuartzJobBean;
+
+import com.trusdom.fdip.common.Config;
+import com.trusdom.fdip.common.Constants;
+import com.trusdom.fdip.common.HttpUtil;
+import com.trusdom.fdip.common.Json;
+import com.trusdom.fdip.mappers.CapitalAllocationMapper;
+import com.trusdom.fdip.mappers.ChannelMapper;
+import com.trusdom.fdip.mappers.FundMapper;
+import com.trusdom.fdip.mappers.TradeMapper;
+import com.trusdom.fdip.model.CapitalAllocation;
+import com.trusdom.fdip.model.Channel;
+import com.trusdom.fdip.model.Trade;
+import com.trusdom.fdip.services.CapitalAllocationService;
+import com.trusdom.fdip.vo.AmountTransferVo;
+import com.trusdom.fdip.vo.CbipFrozenOrUnFrozenResquestVo;
+import com.trusdom.fdip.vo.CbipResponseVo;
+
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年6月6日 下午3:03:57
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+/**
+ * @author lenovo
+ *
+ */
+public class AmountTransferJob extends QuartzJobBean{
+	
+	private static final Logger log=Logger.getLogger(AmountTransferJob.class);
+	
+	private static final String CBIPURL = Config.getConfigByKey("cbipBaseUrl", "");
+	
+	
+	@Autowired
+	TradeMapper tradeMapper;
+	
+	@Autowired
+	FundMapper fundMapper;
+	
+	@Autowired
+	ChannelMapper channelMapper;
+	
+	@Autowired
+	CapitalAllocationService capitalAllocationService;
+	
+	@Override
+	protected void executeInternal(JobExecutionContext arg0) throws JobExecutionException {
+		// TODO Auto-generated method stub
+		List<AmountTransferVo> list=tradeMapper.findTransfer(Constants.SDF_DATE.format(new Date()));
+		for(AmountTransferVo amountTransferVo:list){
+			Channel channel=channelMapper.findById(amountTransferVo.getChannel());
+			transfer(channel.getAccountNo(),amountTransferVo.getTotal());
+		}
+	}
+	
+	
+	private  void   transfer(String accountNo,BigDecimal amount){
+		CapitalAllocation capitalAllocation=new CapitalAllocation();
+		capitalAllocation.setOccurTime(new Date());
+		capitalAllocation.setAmount(amount);
+		try {
+			capitalAllocation.setTxTradeNo(HttpUtil.cbipUnFrozen(accountNo, amount));
+			capitalAllocation.setStatus(true);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			capitalAllocation.setStatus(false);
+		}
+		finally{
+			capitalAllocationService.transferAmount(capitalAllocation);
+		}
+	}
+
+}

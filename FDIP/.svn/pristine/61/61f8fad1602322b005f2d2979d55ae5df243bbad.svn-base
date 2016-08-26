@@ -1,0 +1,53 @@
+package com.trusdom.fdip.scheduler;
+
+import java.util.List;
+
+import org.quartz.DisallowConcurrentExecution;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.quartz.QuartzJobBean;
+import org.springframework.stereotype.Service;
+
+import com.trusdom.fdip.model.Channel;
+import com.trusdom.fdip.model.Fund;
+import com.trusdom.fdip.model.Channel.Code;
+import com.trusdom.fdip.services.ChannelService;
+import com.trusdom.fdip.services.FundService;
+import com.trusdom.fdip.services.mcip.McipThsFundService;
+
+@Service
+@DisallowConcurrentExecution
+public class SyncIncomeRateJob extends QuartzJobBean {
+	private static final Logger LOGGER = LoggerFactory.getLogger(SyncIncomeRateJob.class);
+	private static final Code CHANNEL = Code.THS;
+	@Autowired
+	ChannelService channelService;
+	
+	@Autowired
+	FundService fundService;
+	
+	@Autowired
+	McipThsFundService mcipThsFundService;
+	@Override
+	protected void executeInternal(JobExecutionContext paramJobExecutionContext)
+			throws JobExecutionException {
+		Channel channel = channelService.QueryByCode(CHANNEL.name());
+		List<Fund> funds = fundService.queryByChannel(channel);
+		for (Fund fund : funds) {
+			syncFundStatus(fund);
+			syncFundIncomeRate(fund);
+		}
+	}
+
+	private void syncFundStatus(Fund fund){
+		mcipThsFundService.fundStatus(fund);
+		fundService.update(fund);
+	}
+	
+	private void syncFundIncomeRate(Fund fund){
+		
+	}
+}

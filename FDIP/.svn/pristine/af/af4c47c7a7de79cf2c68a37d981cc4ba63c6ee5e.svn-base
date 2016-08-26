@@ -1,0 +1,29 @@
+package com.trusdom.fdip.controller;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.trusdom.fdip.services.CommonService;
+import com.trusdom.fdip.vo.BaseVo;
+
+@Controller
+@RequestMapping("/i")
+public class CommonController {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(CommonController.class);
+	
+	@Autowired
+	CommonService commonService;
+	@RequestMapping("/ths/query/{applyNo}/transfer")
+	public @ResponseBody BaseVo capitalTransferQuery(@PathVariable String applyNo){
+		LOGGER.info("资金划拨查询; applyNo: [{}]", applyNo);
+		BaseVo result = commonService.capitalTransferQuery(applyNo);
+		LOGGER.info("资金划拨查询, 返回结果: [{}]", result);
+		return result;
+	}
+}

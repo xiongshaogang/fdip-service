@@ -1,0 +1,9 @@
+package com.trusdom.fdip.common;
+
+public class Constants {
+
+	
+	public static final int DEFAULT_TIME_POINT = 15;
+	
+	public static final String PAYDAY_KEY = "FDIP:PAYDAY:KEY:";
+}

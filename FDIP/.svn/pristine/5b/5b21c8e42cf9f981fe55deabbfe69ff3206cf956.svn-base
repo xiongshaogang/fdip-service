@@ -1,0 +1,180 @@
+package com.trusdom.fdip.services;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.trusdom.fdip.common.Config;
+import com.trusdom.fdip.common.Constants;
+import com.trusdom.fdip.common.DateUtil;
+import com.trusdom.fdip.common.Json;
+import com.trusdom.fdip.model.Account3RD;
+import com.trusdom.fdip.model.AccountFundAmount;
+import com.trusdom.fdip.model.Channel;
+import com.trusdom.fdip.model.Trade;
+import com.trusdom.fdip.model.account3RD.ThsAccount;
+import com.trusdom.fdip.services.mcip.McipService;
+import com.trusdom.fdip.services.mcip.McipThsFundService;
+
+@Service
+public class VerifyService {
+	private static final Logger LOGGER = LoggerFactory.getLogger(VerifyService.class);
+	
+	private static final String LOCAL_VERIFY_FILE_NAME = "365_D_%s_ZJ.txt";
+	
+	private static final String THS_VERIFY_FILE_NAME = "365_D_%s_DZ.txt";
+	@Autowired
+	McipThsFundService mcipThsFundService;
+	@Autowired
+	McipService mcipService;
+	@Autowired
+	AccountService accountService;
+	@Autowired
+	AccountFundAmountService accountFundAmountService;
+	@Autowired
+	ChannelService channelService;
+	@Autowired
+	TradeService tradeService;
+	@Autowired
+	HolidayService holidayService;
+	
+	@Autowired
+	Account3RDService  account3RDService;
+	public File download(String url){
+		LOGGER.info("开始下载同花顺对账文件...");
+//		File file = mcipThsFundService.downLoadVerifyFile(Constants._SDF_DATE.format(new Date()));
+		File file = mcipThsFundService.downLoadVerifyFile("20160627");
+		String filePath = Constants.VERIFY_FILE_PATH+"filename";
+		LOGGER.info("已下载同花顺对账文件: [{}]", filePath);
+		return file;
+	}
+	
+	public void verify(File file) {
+		LOGGER.info("开始解析对账文件...");
+		if (!file.exists()){
+			LOGGER.error("对账文件不存在");
+			return;
+		}
+		BufferedReader reader = null;
+		try{
+			reader = new BufferedReader(new FileReader(file));
+			String header = reader.readLine();
+			LOGGER.info("读取文件头信息: [{}]", header);
+			String line = null;
+			while(null != (line = reader.readLine())){
+				LOGGER.info("读取数据内容: [{}]", line);
+				if (StringUtils.isBlank(line)) continue;
+				singleVerify(line);
+			}
+		}catch(IOException e){
+			e.printStackTrace();
+			LOGGER.error("读取对账文件异常!!");
+			LOGGER.error("{}",e.getCause());
+		}finally{
+			try {
+				reader.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	public void singleVerify(String line){
+		String[] infos = line.split("\\|");
+		BigDecimal thsAmount = new BigDecimal(infos[0]);
+		String thsTransactionAccountId = infos[6];
+		long account = accountService.findAccountIdBy3RD(thsTransactionAccountId);
+		Channel channel = channelService.QueryByCode(Constants.CHANNEL_THS);
+		AccountFundAmount afa = accountFundAmountService.findByAccountAndChannel(account, channel.getId());
+		if (null != afa){
+			if (thsAmount.doubleValue() != afa.getAmount().doubleValue()){
+				mcipService.sendTplSms(Config.getConfigByKey("verify.err.warning"), "10001", "#name#=123");
+			}else{
+				
+			}
+		}else{
+		}
+	}
+	
+	public File generateVerifyFile(){
+		LOGGER.info("正在构造资金对账文件...");
+		String now = DateUtil.currentDate(Constants._SDF_DATE);
+		String fileName = String.format(LOCAL_VERIFY_FILE_NAME, now);
+		File file = new File(Constants.VERIFY_FILE_PATH+fileName);
+		StringBuffer sb = new StringBuffer("365|"+now+"|");
+		BufferedWriter bw = null;
+		try{
+			bw = new BufferedWriter(new FileWriter(file));
+			BigDecimal totalAmount = totalAmount();
+			List<Trade> records = records();
+			int total = records.size();
+			sb.append(total+"|"+totalAmount+"|"+total+"|"+totalAmount+"|0|0");
+			bw.write(sb.toString());
+			bw.newLine();
+			for (Trade trade : records) {
+				sb = new StringBuffer(trade.getExtTradeNo()+"|");
+				sb.append(trade.getRealAmount()+"|");
+				sb.append(Constants._SDF_DATETIME.format(trade.getCreateTime())+"|");
+				sb.append(trade.getFund().getCode()+"|");
+				sb.append(trade.getTransferNo()+"|");
+				sb.append(trade.getAccount().getBankAccount()+"|");
+				Long account3RDID = trade.getThrdAccount();
+				Account3RD account3RD = account3RDService.findById(account3RDID);
+				ThsAccount thsAccount = Json.fromJson(Json.parse(account3RD.getAccountInfo()), ThsAccount.class);
+				sb.append("0|").append(account3RD.getUserId()+"|D|").append(thsAccount.getCustId()+"|结果描述");
+				bw.write(sb.toString());
+				bw.newLine();
+			}
+			bw.flush();
+		}catch(Exception e){
+			LOGGER.info("构建对账文件发生异常!");
+			e.printStackTrace();
+		}finally{
+			try {
+				bw.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		return file;
+	}
+	
+	public BigDecimal totalAmount(){
+		LOGGER.info("正在计算当日同花顺基金申购总份额(金额)...");
+		//起始日期 昨日?上一个工作日?
+		Date start = DateUtil.yestoday();//holidayService.prevWorkDay();
+		String startTime = DateUtil.timePoint(start, Constants.DEFAULT_CUT_TIME);
+		String endTime = DateUtil.timePoint(new Date(), Constants.DEFAULT_CUT_TIME);
+		BigDecimal totalAmount = tradeService.countTotalAmountByDateForVerify(1l, startTime, endTime);
+		if (null == totalAmount) totalAmount = new BigDecimal(0);
+		LOGGER.info("计算出当日同花顺基金申购总份额(金额)为:[{}]", totalAmount);
+		return totalAmount;
+	}
+	public List<Trade> records(){
+		LOGGER.info("开始获取当日同花顺基金申购交易数据...");
+		//起始日期 昨日?上一个工作日?
+		Date start = DateUtil.yestoday();//holidayService.prevWorkDay();
+		String startTime = DateUtil.timePoint(start, Constants.DEFAULT_CUT_TIME);
+		String endTime = DateUtil.timePoint(new Date(), Constants.DEFAULT_CUT_TIME);
+		List<Trade> result = tradeService.queryByDateForVerify(1l, startTime, endTime);
+		LOGGER.info("获取到当日同花顺基金申购数据, 共[{}]条", result.size());
+		return result;
+	}
+	
+	public static void main(String[] args) throws IOException {
+		VerifyService vs = new VerifyService();
+		vs.verify(new File("d://tmpconfig.txt"));
+	}
+}

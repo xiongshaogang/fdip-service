@@ -1,0 +1,48 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.vo;
+
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年5月31日 下午6:05:27
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+/**
+ * @author lenovo
+ *
+ */
+public class ThsMcipFastRedeResponseVo extends AbstractVo<ThsMcipFastRedeResponseVo>{
+
+	private String appsheetSerialNo;
+
+	private String capitalserial;
+
+	private String message;
+
+	public String getAppsheetSerialNo() {
+		return appsheetSerialNo;
+	}
+
+	public void setAppsheetSerialNo(String appsheetSerialNo) {
+		this.appsheetSerialNo = appsheetSerialNo;
+	}
+
+	public String getCapitalserial() {
+		return capitalserial;
+	}
+
+	public void setCapitalserial(String capitalserial) {
+		this.capitalserial = capitalserial;
+	}
+
+	public String getMessage() {
+		return message;
+	}
+
+	public void setMessage(String message) {
+		this.message = message;
+	}
+}

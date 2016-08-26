@@ -1,0 +1,65 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.scheduler;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+
+import org.jboss.logging.Logger;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.quartz.QuartzJobBean;
+
+import com.trusdom.fdip.mappers.ChannelMapper;
+import com.trusdom.fdip.mappers.FundMapper;
+import com.trusdom.fdip.mappers.TradeMapper;
+import com.trusdom.fdip.model.Trade;
+import com.trusdom.fdip.services.CapitalAllocationService;
+
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年6月6日 下午3:03:57
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+/**
+ * @author lenovo
+ *
+ */
+public class ThsAmountJob extends QuartzJobBean{
+	
+	private static final Logger log=Logger.getLogger(ThsAmountJob.class);
+	
+	private static final SimpleDateFormat format=new SimpleDateFormat("YYYY-MM-DD");
+	
+	@Autowired
+	TradeMapper tradeMapper;
+	
+	@Autowired
+	FundMapper fundMapper;
+	
+	@Autowired
+	ChannelMapper channelMapper;
+	
+	@Autowired
+	CapitalAllocationService capitalAllocationService;
+	
+	@Override
+	protected void executeInternal(JobExecutionContext arg0) throws JobExecutionException {
+		// TODO Auto-generated method stub
+		List<Trade> trades=tradeMapper.findByPayDay(format.format(new Date()));
+		for(Trade trade:trades){
+			//判断基金渠道,从而知道资金划拨的流向
+			switch(fundMapper.findById(trade.getFund()).getChannel().getCode()){
+			case THS:
+				//资金从同花顺基金账户转移到同花顺余额账户
+				capitalAllocationService.transferAmount("THS", trade.getSgAmount());
+			}
+		}
+	}
+
+}

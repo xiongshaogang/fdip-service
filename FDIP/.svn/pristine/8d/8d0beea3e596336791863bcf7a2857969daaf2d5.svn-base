@@ -1,0 +1,96 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.services;
+
+import java.math.BigDecimal;
+import java.util.Date;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.trusdom.fdip.mappers.AccountFundAmountMapper;
+import com.trusdom.fdip.model.Account;
+import com.trusdom.fdip.model.AccountFundAmount;
+import com.trusdom.fdip.model.Channel;
+import com.trusdom.fdip.model.Fund;
+import com.trusdom.fdip.vo.PurcharseResultVo;
+
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年6月15日 下午7:05:02
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+/**
+ * @author lenovo
+ *
+ */
+@Service
+public class AccountFundAmountService {
+	
+	@Autowired
+	AccountFundAmountMapper accountFundAmountMapper;
+	
+	
+	@Transactional
+	public  AccountFundAmount modifyAccountFundAmount(Long account, BigDecimal amount, Long channel, Long fund,boolean purchase) {
+		AccountFundAmount accountFundAmount = accountFundAmountMapper.findByAccountAndChannelAndFund(account,channel,fund);
+		if (accountFundAmount != null) {
+			if(purchase)
+				accountFundAmount.setAmount(accountFundAmount.getAmount().add(amount));
+			else
+				accountFundAmount.setAmount(accountFundAmount.getAmount().subtract(amount));
+			accountFundAmountMapper.update(accountFundAmount);
+		} else {
+			accountFundAmount = new AccountFundAmount();
+			accountFundAmount.setAccount(account);
+			accountFundAmount.setAmount(amount);
+			accountFundAmount.setChannel(channel);
+			accountFundAmount.setCreateTime(new Date());
+			accountFundAmount.setFund(fund);
+			accountFundAmount.setIncome(new BigDecimal("0.00"));
+			accountFundAmount.setFrozenAmount(new BigDecimal("0.00"));
+			accountFundAmountMapper.insert(accountFundAmount);
+		}
+		return accountFundAmount;
+	}
+	
+	public AccountFundAmount findByAccountAndChannel(Long account,Long channel){
+		return accountFundAmountMapper.findByAccountAndChannel(account, channel);
+	}
+	
+	
+	@Transactional
+	public void addFrozen(Long account, BigDecimal amount, Long channel, Long fund,boolean frozen){
+		AccountFundAmount accountFundAmount = accountFundAmountMapper.findByAccountAndChannelAndFund(account,channel,fund);
+		if(frozen){
+			accountFundAmount.setFrozenAmount(accountFundAmount.getFrozenAmount().add(amount));
+			accountFundAmount.setAmount(accountFundAmount.getAmount().subtract(amount));
+		}
+		else{
+			accountFundAmount.setFrozenAmount(accountFundAmount.getFrozenAmount().subtract(amount));
+			accountFundAmount.setAmount(accountFundAmount.getAmount().add(amount));
+		}
+		accountFundAmountMapper.update(accountFundAmount);
+	}
+
+	@Transactional
+	public void subtractFrozen(Long account, BigDecimal amount, Long channel, Long fund,boolean isAddAmount){
+		AccountFundAmount accountFundAmount = accountFundAmountMapper.findByAccountAndChannelAndFund(account,channel,fund);
+		accountFundAmount.setFrozenAmount(accountFundAmount.getFrozenAmount().subtract(amount));
+		if(isAddAmount){
+			accountFundAmount.setAmount(accountFundAmount.getAmount().add(amount));
+		}
+		accountFundAmountMapper.update(accountFundAmount);
+	}
+	
+	
+	@Transactional
+	public void update(AccountFundAmount accountFundAmount){
+		accountFundAmountMapper.update(accountFundAmount);
+	}
+
+}

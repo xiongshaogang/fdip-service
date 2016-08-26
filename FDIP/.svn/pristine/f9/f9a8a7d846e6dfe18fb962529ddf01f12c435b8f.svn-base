@@ -1,0 +1,61 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.model;
+
+import java.io.Serializable;
+
+import com.trusdom.fdip.common.Json;
+
+/**
+ * @author zhihuayang E-mail:425273175@qq.com
+ * @date 创建时间：2016年5月6日 下午5:01:13
+ * @version 1.0
+ * @parameter
+ * @return
+ */
+
+public class Fund implements Serializable {
+
+	private Integer id;
+
+	private String name;
+
+	private String fundcode;
+
+	public Integer getId() {
+		return id;
+	}
+
+	public void setId(Integer id) {
+		this.id = id;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public String getFundcode() {
+		return fundcode;
+	}
+
+	public void setFundcode(String fundcode) {
+		this.fundcode = fundcode;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		// TODO Auto-generated method stub
+		return Json.toJson(this).toString();
+	}
+
+}

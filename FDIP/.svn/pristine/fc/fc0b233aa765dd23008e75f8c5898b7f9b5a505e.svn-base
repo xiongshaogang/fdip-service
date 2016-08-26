@@ -1,0 +1,30 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+ 
+ <!-- fdip-api 定义了对外(主要针对CBIP平台）暴露的接口 -->
+ 
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.trusdom</groupId>
+    <artifactId>FDIP</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+  </parent>
+  <artifactId>fdip-api</artifactId>
+  <distributionManagement>  
+	<repository>  
+		<id>nexus-releases</id>  
+		<url>http://172.19.6.87:8066/nexus/content/repositories/releases</url>  
+	</repository>  
+	<snapshotRepository>  
+		<id>nexus-snapshots</id>  
+		<url>http://172.19.6.87:8066/nexus/content/repositories/snapshots/</url>  
+	</snapshotRepository>  
+ </distributionManagement>
+ 
+ <dependencies>
+ 	<dependency>
+ 		<groupId>com.trusdom</groupId>
+ 		<artifactId>fdip-common</artifactId>
+ 		<version>${project.version}</version>
+ 	</dependency>
+ </dependencies>
+</project>

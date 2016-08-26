@@ -1,0 +1,39 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.common;
+
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.trusdom.fdip.services.mcip.McipService;
+
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年7月28日 上午10:27:42
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+/**
+ * @author lenovo
+ *
+ */
+@Service
+public class NotifyMessageUtil {
+	
+	@Autowired
+	McipService mcipService;
+	
+	private static final String[] DEVELOPERS = Config.getConfigByKey("verify.err.warning", "").split(",");
+	private static final String TPLID = Config.getConfigByKey("verify.err.sms.tpl.id");
+	
+	public   void sendMessage(String message){
+		for (String phone : DEVELOPERS) {
+			if (StringUtils.isNotBlank(phone) && StringUtils.isNotBlank(TPLID)){
+				mcipService.sendTplSms(phone, TPLID, message);
+			}
+		}
+	}
+}

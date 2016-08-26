@@ -1,0 +1,39 @@
+package com.trusdom.fdip.services.hessian.impl.demo;
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.trusdom.fdip.form.DemoPersonForm;
+import com.trusdom.fdip.mappers.DemoMapper;
+import com.trusdom.fdip.model.DemoPerson;
+import com.trusdom.fdip.services.hessian.demo.DemoService;
+
+/**
+ * 
+* @ClassName: DemoServiceImpl 
+* @Description: Hessian服务实现
+* @author zjb 
+* @date May 4, 2016 6:01:27 PM
+*
+ */
+@Service("demoService")
+public class DemoServiceImpl implements DemoService {
+
+	@Autowired
+	DemoMapper demoMapper;
+	
+	@Override
+	public List<DemoPerson> query() {
+		return demoMapper.query();
+	}
+
+	@Override
+	public void insert(DemoPersonForm form) {
+		DemoPerson person = DemoPersonForm.toDemoPerson(form);
+		demoMapper.instert(person);
+
+	}
+
+}

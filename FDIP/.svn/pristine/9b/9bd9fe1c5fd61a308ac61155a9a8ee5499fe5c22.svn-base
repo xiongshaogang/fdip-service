@@ -1,0 +1,100 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.vo;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+
+
+
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年5月31日 下午4:56:45
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+/**
+ * @author lenovo
+ * @param <T>
+ *
+ */
+public class ThsResponseVo<T1,T2> {
+	
+	private String code;
+
+	private String message;
+
+	private String url;
+
+	private String custId;
+
+	private T1 singleData;
+
+	private List<T2> listData;
+
+	public String getCode() {
+		return code;
+	}
+
+	public void setCode(String code) {
+		this.code = code;
+	}
+
+	public String getMessage() {
+		return message;
+	}
+
+	public void setMessage(String message) {
+		this.message = message;
+	}
+
+	public String getUrl() {
+		return url;
+	}
+
+	public void setUrl(String url) {
+		this.url = url;
+	}
+
+	public String getCustId() {
+		return custId;
+	}
+
+	public void setCustId(String custId) {
+		this.custId = custId;
+	}
+
+	public T1 getSingleData() {
+		return singleData;
+	}
+
+	public void setSingleData(T1 singleData) {
+		this.singleData = singleData;
+	}
+
+	public List<T2> getListData() {
+		return listData;
+	}
+
+	public void setListData(List<T2> listData) {
+		this.listData = listData;
+	}
+
+//	public static void main(String[] args) {
+//		UserVo userVo=new UserVo();
+//		userVo.setAccount3RD(1L);
+//		userVo.setTradePassword("12132");
+//		userVo.setTransActionAccountId("sasas");
+//		userVo.setUserId("yzh");
+//		ThsResponseVo<UserVo,ThsAccountVo> result=new ThsResponseVo<UserVo,ThsAccountVo>();
+//		result.setSingleData(userVo);
+//		ThsResponseVo thsResponseVo=new ThsResponseVo();
+//		thsResponseVo.setSingleData(result.getSingleData());
+//		UserVo vo=(UserVo) thsResponseVo.getSingleData();
+//		System.out.println(Json.toJson(vo).toString());
+//	}
+
+}

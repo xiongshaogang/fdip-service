@@ -1,0 +1,129 @@
+CREATE DATABASE  IF NOT EXISTS `fdip` DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
+
+USE `fdip`;
+
+CREATE TABLE IF NOT EXISTS `holiday` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `year` varchar(4) COLLATE utf8_bin NOT NULL COMMENT '年份',
+  `day` varchar(10) COLLATE utf8_bin NOT NULL COMMENT '日期',
+  `name` varchar(50) COLLATE utf8_bin NOT NULL COMMENT '节假日名称',
+  `description` varchar(200) COLLATE utf8_bin NOT NULL COMMENT '节假日描述',
+  `festival` varchar(10) COLLATE utf8_bin NOT NULL COMMENT '节日',
+  `sort` int(5) NOT NULL COMMENT '当年的第几天',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `day` (`day`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+CREATE TABLE IF NOT EXISTS `3rd_account` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `channel` bigint(20) NOT NULL,
+  `accountInfo` text COLLATE utf8_bin NOT NULL COMMENT '三方账户详情(JSON)',
+  `accountNo` bigint(20) NOT NULL COMMENT '基本账户',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+CREATE TABLE IF NOT EXISTS `account` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `accountNo` varchar(50) COLLATE utf8_bin NOT NULL COMMENT '个人用户子帐号(摊位号)',
+  `bankAccountNo` varchar(50) COLLATE utf8_bin NOT NULL COMMENT '个人用户银行子帐号',
+  `tradePwd` varchar(100) COLLATE utf8_bin DEFAULT NULL COMMENT '交易密码',
+  `otherInfo` varchar(100) COLLATE utf8_bin DEFAULT NULL COMMENT '用户其他信息(多个字段)',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+
+CREATE TABLE IF NOT EXISTS `account_fund_amount` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `channel` bigint(20) NOT NULL COMMENT '渠道',
+  `fund` bigint(20) NOT NULL COMMENT '基金',
+  `account` bigint(20) NOT NULL COMMENT '用户',
+  `amount` decimal(10,4) NOT NULL COMMENT '总份额(含已经计息和还未开始计息的份额)',
+  `income` decimal(10,4) NOT NULL COMMENT '累计收益',
+  `createTime` datetime NOT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+
+CREATE TABLE IF NOT EXISTS `capital_allocation` ( 
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `txTradeNo` varchar(50) COLLATE utf8_bin NOT NULL COMMENT '资金划拨流水(由CBIP的资金划拨接口返回)',
+  `amount` decimal(10,2) NOT NULL COMMENT '划拨金额',
+  `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '资金划拨状态',
+  `occurTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '发生时间',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+
+CREATE TABLE IF NOT EXISTS `channel` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `code` varchar(20) COLLATE utf8_bin NOT NULL COMMENT '渠道编码',
+  `name` varchar(20) COLLATE utf8_bin NOT NULL COMMENT '渠道名称',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `code` (`code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+insert  into `channel`(`code`,`name`) values ('10001','同花顺');
+
+
+CREATE TABLE IF NOT EXISTS `fund` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `code` varchar(50) COLLATE utf8_bin NOT NULL COMMENT '基金代码',
+  `name` varchar(50) COLLATE utf8_bin NOT NULL COMMENT '基金名称',
+  `status` varchar(20) COLLATE utf8_bin NOT NULL COMMENT '基金状态',
+  `channel` bigint(20) NOT NULL COMMENT '渠道',
+  `createTime` datetime NOT NULL,
+  `updateTime` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `code` (`code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+insert  into `fund`(`code`,`name`,`status`,`channel`,`createTime`,`updateTime`) values ('10001','同花顺xx基金','NORMAL',1,'2016-05-16 10:30:00','2016-05-16 10:30:00');
+
+CREATE TABLE IF NOT EXISTS `income` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `channel` bigint(20) NOT NULL COMMENT '渠道',
+  `fund` bigint(20) NOT NULL COMMENT '基金',
+  `account` bigint(20) NOT NULL COMMENT '用户',
+  `day` date NOT NULL COMMENT '收益日期',
+  `income` decimal(10,3) NOT NULL DEFAULT '0.000' COMMENT '收益',
+  `interestAmount` decimal(10,3) NOT NULL DEFAULT '0.000' COMMENT '计息份额',
+  `createTime` datetime NOT NULL COMMENT '同步时间',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+
+CREATE TABLE IF NOT EXISTS `income_rate` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `channel` bigint(20) NOT NULL COMMENT '渠道',
+  `fund` bigint(20) NOT NULL COMMENT '基金',
+  `wfsy` decimal(10,4) NOT NULL COMMENT '万份收益',
+  `incomeRate7` decimal(10,4) NOT NULL COMMENT '七日年化收益率',
+  `day` date NOT NULL COMMENT '日期',
+  `createTime` datetime NOT NULL COMMENT '同步时间',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+
+CREATE TABLE IF NOT EXISTS `sgedit` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `trade` bigint(20) NOT NULL COMMENT '表示修改了哪个申购请求',
+  `amount` decimal(10,2) NOT NULL COMMENT '修改的金额',
+  `createTime` datetime NOT NULL COMMENT '修改时间',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+
+CREATE TABLE IF NOT EXISTS `trade` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `thrdAccount` bigint(20) NOT NULL COMMENT '交易账户',
+  `tradeNo` varchar(50) COLLATE utf8_bin DEFAULT NULL COMMENT '交易流水',
+  `extTradeNo` varchar(50) COLLATE utf8_bin DEFAULT NULL COMMENT '外部交易流水',
+  `amount` decimal(10,2) NOT NULL COMMENT '交易金额',
+  `sgAmount` decimal(10,2) DEFAULT NULL COMMENT '该申请单号最终的份额',
+  `status` varchar(50) COLLATE utf8_bin NOT NULL COMMENT '交易状态 (成功,失败,进行中)',
+  `tradeType` varchar(50) COLLATE utf8_bin NOT NULL COMMENT '交易类型(申购,赎回)',
+  `createTime` datetime NOT NULL COMMENT '交易时间',
+  `updateTime` datetime NOT NULL COMMENT '更新时间',
+  `payTime` datetime COMMENT '支付时间', 
+  `fund` bigint(20) NOT NULL COMMENT '基金',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+

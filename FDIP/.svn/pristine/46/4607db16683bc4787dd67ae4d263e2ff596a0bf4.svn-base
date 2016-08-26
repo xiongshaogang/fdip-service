@@ -1,0 +1,28 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.services;
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年5月16日 上午11:04:27
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+/**
+ * @author lenovo
+ *
+ */
+public class BuyFundService {
+
+	/**
+	 * 购买基金,判断当前日期是否为T日,为T日购买同花顺基金,不为T日直接冻结金额
+	 * @param fundCode
+	 * @param transActionAccountId
+	 * @param mount
+	 * @param txTraceNo
+	 */
+	public void buy(String fundCode,String transActionAccountId,double mount,String txTraceNo){
+		
+	}
+}

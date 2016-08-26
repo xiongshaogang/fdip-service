@@ -1,0 +1,55 @@
+package com.trusdom.fdip.model;
+
+import com.trusdom.fdip.common.Json;
+
+public class Channel {
+	public enum Code{
+		THS;
+	}
+	private long id;
+	
+	private Code code;
+	
+	private String name;
+	
+	//该渠道对应子帐号(摊位号)
+	private String accountNo;
+
+	public long getId() {
+		return id;
+	}
+
+	public void setId(long id) {
+		this.id = id;
+	}
+
+	public Code getCode() {
+		return code;
+	}
+
+	public void setCode(Code code) {
+		this.code = code;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public String getAccountNo() {
+		return accountNo;
+	}
+
+	public void setAccountNo(String accountNo) {
+		this.accountNo = accountNo;
+	}
+
+	@Override
+	public String toString() {
+		return Json.toJson(this).toString();
+	}
+	
+}

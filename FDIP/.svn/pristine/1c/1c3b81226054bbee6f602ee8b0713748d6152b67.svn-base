@@ -1,0 +1,69 @@
+package com.trusdom.fdip;
+
+import java.math.BigDecimal;
+import java.util.Date;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
+
+import com.trusdom.fdip.mappers.AccountMapper;
+import com.trusdom.fdip.mappers.ChannelMapper;
+import com.trusdom.fdip.mappers.IncomeMapper;
+import com.trusdom.fdip.mappers.IncomeRateMapper;
+import com.trusdom.fdip.model.Account;
+import com.trusdom.fdip.model.Channel;
+import com.trusdom.fdip.model.Channel.Code;
+import com.trusdom.fdip.model.Income;
+import com.trusdom.fdip.model.IncomeRate;
+import com.trusdom.fdip.spring.configs.AppConfig;
+
+public class JTest {
+
+	AnnotationConfigWebApplicationContext ctx = new AnnotationConfigWebApplicationContext();
+	@Before
+	public void config(){
+		ctx.register(AppConfig.class);
+		ctx.refresh();
+	}
+	@Test
+	public void incomeMapperTest() {
+		Income income = new Income();
+		income.setAccount(1);
+		income.setChannel(1);
+		income.setFund(1);
+		income.setDay("2016-05-10");
+		income.setIncome(new BigDecimal(10));
+		income.setInterestAmount(income.getIncome());
+		income.setCreateTime(new Date());
+		IncomeMapper mapper = ctx.getBean(IncomeMapper.class);
+		mapper.save(income);
+		System.err.println(mapper.findMyIncomeByDay(1, 1, 1, "2016-05-10"));
+	}
+	
+	@Test
+	public void incomeRateMapperTest() {
+		IncomeRate rate = new IncomeRate();
+		rate.setChannel(1);
+		rate.setFund(1);
+		rate.setDay("2016-05-10");
+		rate.setMillionIncomeRate(new BigDecimal(0.456));
+		rate.setAnnualIncome7d(new BigDecimal(1.234));
+		rate.setCreateTime(new Date());
+		IncomeRateMapper mapper = ctx.getBean(IncomeRateMapper.class);
+		mapper.save(rate);
+		System.err.println(mapper.findByDay(1, 1, "2016-05-10"));
+	}
+	
+	@Test
+	public void channelTest(){
+//		Account account=new Account();
+//		account.setAccountNo("test000");
+//		account.setBankAccountNo("assssss");
+//		account.setTradePwd("mmmmmmm");
+//		AccountMapper mapper=ctx.getBean(AccountMapper.class);
+//		mapper.insert(account);
+//		System.out.println(account.getId());
+	}
+
+}

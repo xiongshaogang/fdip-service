@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+	<!-- 收益同步 start -->
+	<bean id="incomeSyncJobDetail"
+		class="org.springframework.scheduling.quartz.JobDetailFactoryBean">
+		<property name="jobClass" value="com.trusdom.fdip.scheduler.SyncIncomeJob" />
+		<property name="durability" value="true" />
+	</bean>
+	<bean id="incomeSyncJobTrigger"
+		class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+		<property name="jobDetail" ref="incomeSyncJobDetail" />
+		<property name="cronExpression" value="0 20 3 * * ?" />
+	</bean>
+	<!-- 收益同步 end -->
+
+	<!-- 收益率同步 start -->
+	<bean id="incomeRateSyncJobDetail"
+		class="org.springframework.scheduling.quartz.JobDetailFactoryBean">
+		<property name="jobClass" value="com.trusdom.fdip.scheduler.SyncIncomeRateJob" />
+		<property name="durability" value="true" />
+	</bean>
+	<bean id="incomeRateSyncJobTrigger"
+		class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+		<property name="jobDetail" ref="incomeRateSyncJobDetail" />
+		<property name="cronExpression" value="0 0 3 * * ?" />
+	</bean>
+	<!-- 收益率同步 end -->
+
+	<!-- 同花顺对账 start -->
+	<bean id="verifyJobDetail"
+		class="org.springframework.scheduling.quartz.JobDetailFactoryBean">
+		<property name="jobClass" value="com.trusdom.fdip.scheduler.VerifyJob" />
+		<property name="durability" value="true" />
+	</bean>
+	<bean id="verifyJobTrigger"
+		class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+		<property name="jobDetail" ref="verifyJobDetail" />
+		<property name="cronExpression" value="0 30 17 * * ?" />
+	</bean>
+	<!-- 同花顺对账 end -->
+
+	<!--资金划拨start -->
+	<bean id="transferJobDetail"
+		class="org.springframework.scheduling.quartz.JobDetailFactoryBean">
+		<property name="jobClass" value="com.trusdom.fdip.scheduler.AmountTransferJob" />
+		<property name="durability" value="true" />
+	</bean>
+	<bean id="transferJobTrigger"
+		class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+		<property name="jobDetail" ref="transferJobDetail" />
+		<property name="cronExpression" value="0 0 4 * * ?" /> <!-- 每天凌晨4点资金划拨 用于基金公司提现-->
+	</bean>
+	<!--资金划拨end -->
+	
+	<!--交易确认start -->
+	<bean id="tradeResultJobDetail"
+		class="org.springframework.scheduling.quartz.JobDetailFactoryBean">
+		<property name="jobClass" value="com.trusdom.fdip.scheduler.TradeResultJob" />
+		<property name="durability" value="true" />
+	</bean>
+	<bean id="tradeResultJobTrigger"
+		class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+		<property name="jobDetail" ref="tradeResultJobDetail" />
+		<property name="cronExpression" value="0 0 17 * * ?" /> <!-- 每天下午5点确认 -->
+	</bean>
+	<!-- 交易确认end -->
+
+	<bean id="quartzScheduler"
+		class="org.springframework.scheduling.quartz.SchedulerFactoryBean">
+		<property name="configLocation" value="classpath:quartz.properties" />
+		<property name="dataSource" ref="dataSource" />
+		<property name="transactionManager" ref="transactionManager" />
+		<property name="overwriteExistingJobs" value="true" />
+		<property name="autoStartup" value="true" />
+		<property name="applicationContextSchedulerContextKey" value="applicationContext" />
+		<property name="jobFactory">
+			<bean class="com.trusdom.fdip.scheduler.AutowiringSpringBeanJobFactory" />
+		</property>
+
+		<property name="jobDetails">
+			<list>
+				<ref bean="incomeSyncJobDetail" />
+				<ref bean="incomeRateSyncJobDetail" />
+				<ref bean="verifyJobDetail" />
+				<ref bean="transferJobDetail" />
+				<ref bean="tradeResultJobDetail" />
+			</list>
+		</property>
+		<property name="triggers">
+			<list>
+				<ref bean="incomeSyncJobTrigger" />
+				<ref bean="incomeRateSyncJobTrigger" />
+				<ref bean="verifyJobTrigger" />
+				<ref bean="transferJobTrigger" />
+				<ref bean="tradeResultJobTrigger" />
+			</list>
+		</property>
+	</bean>
+
+</beans>

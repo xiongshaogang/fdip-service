@@ -1,0 +1,28 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.mappers;
+
+import org.apache.ibatis.annotations.Result;
+import org.apache.ibatis.annotations.Results;
+import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
+
+import com.trusdom.fdip.model.AccountFundAmount;
+
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年5月18日 上午10:57:56
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+
+public interface AccountFundAmountMapper {
+	
+	@Select("select * from account_fund_amount where account=#{account} and channel=#{channel}")
+	AccountFundAmount findByAccountAndChannel(Long account,Long channel);
+	
+	@Update("update account_fund_amount set amount=#{amount},income=#{income} where id=#{id}")
+	void update(AccountFundAmount accountFundAmount);
+}

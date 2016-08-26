@@ -1,0 +1,24 @@
+/**
+ * 
+ */
+package snippet;
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年5月30日 上午11:40:33
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+
+/**
+ * @author lenovo
+ *
+ */
+public class Snippet {
+	/**
+	 * 
+	 */
+	public static void main(String[] args) {
+		buyForm.getAmount()
+	}
+}

@@ -1,0 +1,14 @@
+package com.trusdom.fdip.services.hessian.demo;
+
+import java.util.List;
+
+import com.trusdom.fdip.form.DemoPersonForm;
+import com.trusdom.fdip.model.DemoPerson;
+
+public interface DemoService {
+
+	List<DemoPerson> query();
+	
+	void insert(DemoPersonForm form);
+	
+}

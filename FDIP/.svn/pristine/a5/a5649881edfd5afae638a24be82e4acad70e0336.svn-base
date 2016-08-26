@@ -1,0 +1,27 @@
+/**
+ * 
+ */
+package com.trusdom.fdip.vo;
+/**
+ * @author  zhihuayang E-mail:425273175@qq.com 
+ * @date 创建时间：2016年6月1日 下午1:41:40
+ * @version 1.0 
+ * @parameter  
+ * @return  
+*/
+/**
+ * @author lenovo
+ *
+ */
+public class ThsBuyFundResponseVo {
+	
+	private String appsheetSerialNo;
+
+	public String getAppsheetSerialNo() {
+		return appsheetSerialNo;
+	}
+
+	public void setAppsheetSerialNo(String appsheetSerialNo) {
+		this.appsheetSerialNo = appsheetSerialNo;
+	}
+}

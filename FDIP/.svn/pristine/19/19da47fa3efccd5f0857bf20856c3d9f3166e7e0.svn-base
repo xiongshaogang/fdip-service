@@ -1,0 +1,42 @@
+package com.trusdom.fdip.services;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.trusdom.fdip.mappers.FundMapper;
+import com.trusdom.fdip.model.Channel;
+import com.trusdom.fdip.model.Fund;
+
+@Service
+public class FundService {
+	
+	@Autowired
+	FundMapper fundMapper;
+	
+	/**
+	 * 保存基金
+	 * @param fund
+	 * @return
+	 */
+	public Long save(Fund fund){
+		return fundMapper.insert(fund);
+	}
+	
+	/**
+	 * 根据基金编码查询基金
+	 * @param fundCode
+	 * @return
+	 */
+	public Fund queryByCode(String fundCode){
+		return fundMapper.findByCode(fundCode);
+	}
+	
+	/**
+	 * 根据基金代码查询渠道
+	 * @param fundCode
+	 * @return
+	 */
+	public Channel queryChannelByFundCode(String fundCode){
+		return fundMapper.findChannelByCode(fundCode).getChannel();
+	}
+}

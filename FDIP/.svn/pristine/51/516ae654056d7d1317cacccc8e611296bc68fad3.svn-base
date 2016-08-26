@@ -1,0 +1,218 @@
+package com.trusdom.fdip.services;
+
+import java.math.BigDecimal;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
+
+import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
+
+import com.trusdom.fdip.common.Constants;
+import com.trusdom.fdip.common.Json;
+import com.trusdom.fdip.form.AccountForm;
+import com.trusdom.fdip.form.mcip.OpenAccountForm;
+import com.trusdom.fdip.form.mcip.OpenThsAccountForm;
+import com.trusdom.fdip.mappers.Account3RDMapper;
+import com.trusdom.fdip.mappers.AccountFundAmountMapper;
+import com.trusdom.fdip.mappers.AccountMapper;
+import com.trusdom.fdip.mappers.ChannelMapper;
+import com.trusdom.fdip.mappers.TradeMapper;
+import com.trusdom.fdip.model.Account;
+import com.trusdom.fdip.model.Account3RD;
+import com.trusdom.fdip.model.AccountFundAmount;
+import com.trusdom.fdip.model.Channel;
+import com.trusdom.fdip.model.Fund;
+import com.trusdom.fdip.model.Income;
+import com.trusdom.fdip.model.IncomeRate;
+import com.trusdom.fdip.model.account3RD.ThsAccount;
+import com.trusdom.fdip.services.mcip.McipThsFundService;
+import com.trusdom.fdip.vo.BalanceVo;
+import com.trusdom.fdip.vo.BaseVo;
+import com.trusdom.fdip.vo.IncomeVo;
+import com.trusdom.fdip.vo.ResultVo;
+
+@Service
+public class AccountService {
+	
+	@Autowired
+	RestTemplate template;
+	
+	@Autowired
+	AccountMapper accountMapper;
+	
+	@Autowired
+	Account3RDMapper account3RDMapper;
+	
+	@Autowired
+	ChannelMapper channelMapper;
+	
+	@Autowired
+	FundService fundService;
+	
+	@Autowired
+	AccountFundAmountMapper accountFundAmountMapper;
+
+	@Autowired
+	TradeMapper tradeMapper;
+	
+	@Autowired
+	Account3RDService account3RDService;
+	
+	@Autowired
+	IncomeService incomeService;
+	
+	@Autowired
+	McipThsFundService mcipThsFundService;
+	
+	/**
+	 * 根据accountNo查询账户
+	 * @param accountNo
+	 * @return
+	 */
+	public Account queryAccountByAccountNo(String accountNo){
+		return accountMapper.findByAccountNo(accountNo);
+	}
+	
+	/**
+	 * 开户
+	 * @param form
+	 * @throws Exception 
+	 */
+	@Transactional(isolation=Isolation.SERIALIZABLE)
+	public BaseVo openAccount(AccountForm form) throws Exception{
+		BaseVo baseVo = new BaseVo();
+		//FIXME:调用MCIP进行同花顺账户开户; 后续需要根据渠道不同开通不同基金公司的账户
+		ThsAccount thsAccount = mcipThsFundService.openAccount(OpenThsAccountForm.from(form));
+		if (null == thsAccount){
+			return baseVo.createError("account.openThsAccount.failed");
+		}
+		Channel channel = channelMapper.findByCode(form.getChannle());
+		Account account = new Account();
+		account.setAccountNo(form.getAccountNo());
+		account.setBankAccountNo(form.getBankAccountNo());
+		account.setTradePwd(DigestUtils.md5Hex(form.getAccountNo()));
+		accountMapper.insert(account);
+		
+		Account3RD account3RD = new Account3RD();
+		account3RD.setAccount(account);
+		account3RD.setChannel(channel);
+		account3RD.setAccountInfo(Json.toJson(thsAccount).toString());
+		account3RDMapper.insert(account3RD);
+		return baseVo;
+	}
+	
+	/**
+	 * 获取账户余额,对开薪工资来说即有息余额
+	 * 同步返回总有息余额 和 当前可赎回份额
+	 * 有息余额>=可赎回份额
+	 * @param accountNo
+	 * @param channelCode
+	 * @param fundCode
+	 * @return
+	 */
+	public BaseVo balance(String accountNo, String channelCode, String fundCode){
+		BalanceVo result = new BalanceVo();
+		Account account = queryAccountByAccountNo(accountNo);
+		if (null == account){
+			return result.createError("account.notOpenAccount");
+		}
+		Channel channel = channelMapper.findByCode(channelCode);
+		if (null == channel){
+			return result.createError("channel.illegal");
+		}
+		Fund fund = fundService.queryByCode(fundCode);
+		if (null == fund){
+			return result.createError("fund.illegal");
+		}
+		AccountFundAmount accountFundAmount = accountFundAmountMapper.findByAccountAndChannelAndFund(account.getId(), channel.getId(), fund.getId());
+		if (null != accountFundAmount){
+			result.setBalance(accountFundAmount.getAmount());
+			Account3RD account3rd = account3RDService.queryByChannlAndAccount(channel, account);
+			BigDecimal amountOfModifiable = tradeMapper.getTotalAmountModifiable(account3rd.getId(), fund.getId(), new Date());
+//			Bigdecimal amountOfInterest = 
+		}
+		return result;
+	}
+	
+	public BaseVo income(String accountNo, String channelCode, String fundCode){
+		IncomeVo result = new IncomeVo();
+		Account account = queryAccountByAccountNo(accountNo);
+		if (null == account){
+			return result.createError("account.notOpenAccount");
+		}
+		Channel channel = channelMapper.findByCode(channelCode);
+		if (null == channel){
+			return result.createError("channel.illegal");
+		}
+		Fund fund = fundService.queryByCode(fundCode);
+		if (null == fund){
+			return result.createError("fund.illegal");
+		}
+		Calendar cal = Calendar.getInstance();
+		cal.add(Calendar.DATE, -1);
+		String ystday = Constants.SDF_DATE.format(cal.getTime());
+		AccountFundAmount accountFundAmount = accountFundAmountMapper.findByAccountAndChannelAndFund(account.getId(), channel.getId(), fund.getId());
+		if (null != accountFundAmount){
+			result.setIncome(accountFundAmount.getIncome());
+			Income ystdayIncome = incomeService.findIncomeByDay(account.getId(), channel.getId(), fund.getId(), ystday);
+			if (null != ystdayIncome){
+				result.setYstdayIncome(ystdayIncome.getIncome());
+			}
+		}
+		IncomeRate ystdayRate = incomeService.findIncomeRateByDay(channel.getId(), fund.getId(), ystday);
+		if (null != ystdayRate){
+			result.setMillionIncome(ystdayRate.getMillionIncomeRate());
+		}
+		return result;
+	}
+	
+	public ResultVo<Income> historyIncome(String accountNo, String channelCode, String fundCode, String startTime, String endTime){
+		ResultVo<Income> result = new ResultVo<Income>();
+		Account account = queryAccountByAccountNo(accountNo);
+		if (null == account){
+			return result.createError("account.notOpenAccount");
+		}
+		Channel channel = channelMapper.findByCode(channelCode);
+		if (null == channel){
+			return result.createError("channel.illegal");
+		}
+		Fund fund = fundService.queryByCode(fundCode);
+		if (null == fund){
+			return result.createError("fund.illegal");
+		}
+		if (StringUtils.isBlank(startTime)){
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, 30);
+			startTime = Constants.SDF_DATE.format(cal.getTime());
+		}
+		if (StringUtils.isBlank(endTime)){
+			Calendar cal = Calendar.getInstance();
+			cal.add(Calendar.DATE, -1);
+			endTime = Constants.SDF_DATE.format(cal.getTime());
+		}
+		List<Income> incomes = incomeService.findIncomeByDates(account.getId(), channel.getId(), fund.getId(), startTime, endTime);
+		result.setResults(incomes);
+		return result;
+	}
+	
+	public ResultVo<IncomeRate> incomeRate(String channelCode, String fundCode, String startTime, String endTime){
+		ResultVo<IncomeRate> result = new ResultVo<IncomeRate>();
+		Channel channel = channelMapper.findByCode(channelCode);
+		if (null == channel){
+			return result.createError("channel.illegal");
+		}
+		Fund fund = fundService.queryByCode(fundCode);
+		if (null == fund){
+			return result.createError("fund.illegal");
+		}
+		List<IncomeRate> rates = incomeService.findIncomeRateByDates(channel.getId(), fund.getId(), startTime, endTime);
+		result.setResults(rates);
+		return result;
+	}
+}

@@ -1,0 +1,99 @@
+package com.trusdom.fdip.scheduler;
+
+import java.util.List;
+
+import org.quartz.DisallowConcurrentExecution;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.quartz.QuartzJobBean;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.trusdom.fdip.common.Constants;
+import com.trusdom.fdip.common.Json;
+import com.trusdom.fdip.model.Account3RD;
+import com.trusdom.fdip.model.AccountFundAmount;
+import com.trusdom.fdip.model.Channel;
+import com.trusdom.fdip.model.Channel.Code;
+import com.trusdom.fdip.model.Trade;
+import com.trusdom.fdip.model.Trade.Status;
+import com.trusdom.fdip.model.Trade.TradeType;
+import com.trusdom.fdip.model.account3RD.ThsAccount;
+import com.trusdom.fdip.services.Account3RDService;
+import com.trusdom.fdip.services.AccountFundAmountService;
+import com.trusdom.fdip.services.ChannelService;
+import com.trusdom.fdip.services.TradeService;
+import com.trusdom.fdip.services.mcip.McipThsFundService;
+/**
+ * T+0快速赎回交易同步
+ * desc: 同花顺不能实时返回T+0快速赎回结果, 所以需要通过定时任务查询赎回详情来确定交易结果
+ * @author zjb
+ *
+ */
+public class SyncTradeJob extends QuartzJobBean{
+	private static final Logger LOGGER = LoggerFactory.getLogger(SyncTradeJob.class);
+	private static final Code CHANNEL = Code.THS;
+	
+	@Autowired
+	TradeService tradeService;
+	
+	@Autowired
+	ChannelService channelService;
+	
+	@Autowired
+	McipThsFundService mcipThsFundService;
+	
+	@Autowired
+	Account3RDService account3RDService;
+	
+	@Autowired
+	AccountFundAmountService accountFundAmountService;
+	@Override
+	protected void executeInternal(JobExecutionContext ctx)
+			throws JobExecutionException {
+		long start = System.currentTimeMillis();
+		LOGGER.info("正在同步同花顺基金进行中的赎回交易...");
+		Channel channel = channelService.QueryByCode(Constants.CHANNEL_THS);
+		List<Trade> trades = tradeService.queryByChannelAndStatus(channel.getId(), TradeType.REDEMPTION, Status.INPROGRESS);
+		//TODO: 看情况是否需要多线程处理
+		for (Trade trade : trades) {
+			LOGGER.info("正在同步交易流水为:[{}]的赎回交易记录;", trade.getTradeNo());
+			Long trdAccountId = trade.getThrdAccount();
+			Account3RD account3RD = account3RDService.findById(trdAccountId);
+			ThsAccount thsAccount = Json.fromJson(Json.parse(account3RD.getAccountInfo()), ThsAccount.class);
+			JsonNode detail = mcipThsFundService.redemptionDetail(thsAccount.getCustId(), trade.getTradeNo());
+			if (null == detail) continue;
+			String confirmflag = detail.get("c_confirmflag").asText("0");
+			Status status = Status.INPROGRESS;
+			AccountFundAmount accountFundAmount = accountFundAmountService.findByAccountAndChannelAndFund(account3RD.getAccount().getId(), channel.getId(), trade.getFund().getId());
+			switch (confirmflag) {
+			case "0":
+				LOGGER.info("交易流水号为[{}]的赎回交易尚未确认!!", trade.getTradeNo());
+				break;
+			case "3":
+				LOGGER.info("交易流水号为[{}]的赎回交易已经确认!!", trade.getTradeNo());
+				status = Status.SUCCESS;
+				accountFundAmount.setFrozenAmount(accountFundAmount.getFrozenAmount().subtract(trade.getRealAmount()));
+				break;
+			case "4":
+			case "6":
+				LOGGER.info("交易流水号为[{}]的赎回交易确认失败或已作废!!", trade.getTradeNo());
+				accountFundAmount.setFrozenAmount(accountFundAmount.getFrozenAmount().subtract(trade.getRealAmount()));
+				accountFundAmount.setInterestAmount(accountFundAmount.getInterestAmount().add(trade.getRealAmount()));
+				status = Status.FAIL;
+				break;
+			default:
+				break;
+			}
+			accountFundAmountService.update(accountFundAmount);
+			tradeService.updateStatusByTradeNo(trade.getId(), trade.getTradeNo(), status);
+		}
+		long end = System.currentTimeMillis();
+		LOGGER.info("同步同花顺基金进行中的赎回交易完毕! 共耗时:[{}]ms", (end-start));
+	}
+	
+}
